@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════
+   ARMOR & WEAPONS — Global Theme (Dark Fantasy)
+   ═══════════════════════════════════════════════════ */
+
+@theme {
+  --color-fantasy-dark: #0a0a0f;
+  --color-fantasy-darker: #060609;
+  --color-fantasy-card: #12121a;
+  --color-fantasy-border: #2a2a3a;
+  --color-fantasy-gold: #c9a84c;
+  --color-fantasy-gold-light: #e4c96a;
+  --color-fantasy-silver: #8a8a9a;
+  --color-fantasy-purple: #6b3fa0;
+  --color-fantasy-purple-light: #8b5fbf;
+  --color-fantasy-red: #a83232;
+  --color-fantasy-blue: #2a5da8;
+  --color-fantasy-green: #2a8a3a;
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+body {
+  @apply bg-fantasy-darker text-white antialiased;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-fantasy-darker); }
+::-webkit-scrollbar-thumb { background: var(--color-fantasy-border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-fantasy-gold); }
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, var(--color-fantasy-gold), var(--color-fantasy-gold-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ═══════════════ Pack Opening Animations ═══════════════ */
+@keyframes pack-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.animate-pack-float { animation: pack-float 2s ease-in-out infinite; }
+@keyframes pack-split-left { 0% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(-120px) rotate(-15deg); opacity: 0; } }
+.animate-pack-split-left { animation: pack-split-left 0.8s ease-out forwards; }
+@keyframes pack-split-right { 0% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(120px) rotate(15deg); opacity: 0; } }
+.animate-pack-split-right { animation: pack-split-right 0.8s ease-out forwards; }
+@keyframes card-reveal { 0% { transform: scale(0.3) rotateY(180deg); opacity: 0; } 50% { transform: scale(1.1) rotateY(90deg); opacity: 0.8; } 100% { transform: scale(1) rotateY(0deg); opacity: 1; } }
+.animate-card-reveal { animation: card-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* ═══════════════════════════════════════════════════════════
+   CAVALIERI OSCURI — Game CSS (copia esatta da A&Wmobile.html)
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+    --blood-red: #8a0303;
+    --blood-red-bright: #ff0000;
+    --dark-metal: #1a1a1a;
+    --gold: #b8860b;
+    --parchment: #e2d1a3;
+    --purple: #800080;
+    --bg-dark: #050505;
+}
+
+/* Game page body override — applied via .game-page wrapper */
+.game-page {
+    background-color: var(--bg-dark);
+    color: #d1d5db;
+    font-family: 'Press Start 2P', monospace;
+    background-image: linear-gradient(to bottom, #111 0%, #000 100%);
+    overflow-x: hidden;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Effetto Scanline CRT anni 80 */
+.game-page::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.game-page h1, .game-page h2, .game-page h3, .game-page .frazetta-title {
+    text-transform: uppercase;
+    text-shadow: 4px 4px 0px #000, 2px 2px 0px var(--blood-red);
+    letter-spacing: -1px;
+}
+
+.game-page * { border-radius: 0 !important; }
+
+/* Stile Carte Cavalieri 8-Bit (Desktop Base) */
+.game-page .card {
+    width: 220px; height: 320px;
+    background: var(--dark-metal); border: 4px solid var(--blood-red);
+    box-shadow: inset -4px -4px 0px rgba(0,0,0,0.8), inset 4px 4px 0px rgba(255,255,255,0.1), 8px 8px 0px rgba(0,0,0,0.9);
+    position: relative; transition: transform 0.1s steps(2);
+    display: flex; flex-direction: column; overflow: hidden; cursor: pointer;
+}
+.game-page .card-header { background-color: #000; padding: 10px 4px; text-align: center; border-bottom: 4px solid var(--blood-red); color: var(--parchment); font-size: 0.6rem; line-height: 1.4; text-shadow: 1px 1px 0 #000; }
+.game-page .card-art { flex-grow: 1; background-color: #0a0a0a; background-image: radial-gradient(circle, #222 10%, #000 80%); position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; border-bottom: 4px solid var(--blood-red); }
+.game-page .card-art svg { width: 75%; height: 75%; }
+.game-page .card-stats { background: #000; display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; padding: 10px 0; }
+.game-page .stat { display: flex; flex-direction: column; font-size: 0.5rem; color: #888; gap: 6px; }
+.game-page .stat-val { font-size: 1rem; color: white; text-shadow: 2px 2px 0px #000; }
+
+.game-page .atk-val { color: var(--blood-red-bright); transition: color 0.3s; }
+.game-page .def-val { color: #4dff4d; transition: color 0.3s; }
+.game-page .pa-val  { color: #ffd700; transition: color 0.3s; }
+
+/* Stile Mini-Carte Armi/Oggetti/Terreni */
+.game-page .mini-card { width: 100px; height: 140px; perspective: 1000px; cursor: pointer; transition: transform 0.1s steps(2); position: relative; z-index: 10; }
+.game-page .mini-card:hover { transform: scale(1.5); z-index: 50; }
+.game-page .mini-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
+.game-page .mini-card:hover .mini-card-inner { transform: rotateY(180deg); }
+
+.game-page .mini-card-cover, .game-page .mini-card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; box-shadow: inset -2px -2px 0px rgba(0,0,0,0.8), inset 2px 2px 0px rgba(255,255,255,0.1), 4px 4px 0px rgba(0,0,0,0.9); display: flex; flex-direction: column; overflow: hidden; }
+.game-page .mini-card-cover { background: #111; border: 3px dashed #444; justify-content: center; align-items: center; }
+.game-page .mini-card-face { background: #222; border: 3px solid #555; transform: rotateY(180deg); }
+
+.game-page .mini-card[data-type="arma"] .mini-card-face { border-color: #555; }
+.game-page .mini-card[data-type="arma"]:hover .mini-card-face { border-color: var(--blood-red-bright); }
+.game-page .mini-card[data-type="scudo"] .mini-card-face { border-color: #006400; }
+.game-page .mini-card[data-type="scudo"]:hover .mini-card-face { border-color: #4dff4d; }
+.game-page .mini-card[data-type="oggetto"] .mini-card-face { border-color: var(--gold); }
+.game-page .mini-card[data-type="oggetto"]:hover .mini-card-face { border-color: #ffd700; }
+.game-page .mini-card[data-type="terreno"] .mini-card-face { border-color: var(--purple); }
+.game-page .mini-card[data-type="terreno"]:hover .mini-card-face { border-color: #ff00ff; }
+
+.game-page .mini-card-header { background-color: #000; padding: 4px 2px; text-align: center; border-bottom: 2px solid #555; color: #ccc; font-size: 0.4rem; line-height: 1.2; min-height: 24px; }
+.game-page .mini-card-art { flex-grow: 1; background-color: #111; display: flex; justify-content: center; align-items: center; border-bottom: 2px solid #555; }
+.game-page .mini-card-art svg { width: 80%; height: 80%; }
+.game-page .mini-card-stats { background: #000; display: grid; grid-template-columns: 1fr 1fr; text-align: center; padding: 2px 0; min-height: 28px; }
+.game-page .mini-card-stats .stat-val { font-size: 0.6rem; margin-top: 4px; }
+
+/* Stile Mazzi */
+.game-page .deck { width: 160px; height: 230px; background: #111; border: 4px dashed #444; display: flex; justify-content: center; align-items: center; box-shadow: 6px 6px 0px #000; cursor: pointer; transition: transform 0.1s steps(2); }
+.game-page .deck:hover:not(.disabled) { transform: translateY(-4px) translateX(-4px); border-color: var(--blood-red); box-shadow: 10px 10px 0px #000; }
+.game-page .deck.disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+/* Struttura Campo */
+.game-page .slot-area { position: relative; background: rgba(0,0,0,0.9); background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; }
+.game-page .slot-knight { width: 240px; height: 340px; border: 4px dashed #333; display: flex; justify-content: center; align-items: center; box-shadow: inset 4px 4px 10px #000; }
+.game-page .slot-weapon { width: 106px; height: 146px; border: 2px dashed #444; display: flex; justify-content: center; align-items: center; box-shadow: inset 2px 2px 6px #000; }
+
+.game-page .active-player-glow { box-shadow: inset 0 0 0 4px var(--blood-red), inset 0 0 20px rgba(138,3,3,0.5); background-color: rgba(138, 3, 3, 0.05); }
+
+/* Pulsanti 8-Bit */
+.game-page .btn { background: #4a0000; border: 4px solid #8a0303; border-top-color: #d32f2f; border-left-color: #d32f2f; border-right-color: #2e0000; border-bottom-color: #2e0000; color: var(--parchment); padding: 12px 20px; text-transform: uppercase; font-size: 0.6rem; box-shadow: 4px 4px 0px #000; transition: transform 0.1s; cursor: pointer; font-family: 'Press Start 2P', monospace; }
+.game-page .btn:hover:not(:disabled) { background: #6a0000; transform: scale(1.05); }
+.game-page .btn:active:not(:disabled) { border-top-color: #2e0000; border-left-color: #2e0000; border-right-color: #d32f2f; border-bottom-color: #d32f2f; transform: translate(2px, 2px); box-shadow: 2px 2px 0px #000; }
+.game-page .btn:disabled { background: #222; border-color: #444; color: #666; cursor: not-allowed; box-shadow: 2px 2px 0px #000; }
+
+.game-page .custom-scrollbar::-webkit-scrollbar { width: 12px; }
+.game-page .custom-scrollbar::-webkit-scrollbar-track { background: #111; border-left: 2px solid #333; }
+.game-page .custom-scrollbar::-webkit-scrollbar-thumb { background: #8a0303; border: 2px solid #111; }
+
+/* --- MEDIA QUERIES PER MOBILE (Smartphone) --- */
+@media (max-width: 768px) {
+    .game-page .card { width: 110px; height: 160px; border-width: 2px; }
+    .game-page .card-header { padding: 4px 2px; font-size: 0.35rem; border-bottom-width: 2px; line-height: 1.2; }
+    .game-page .card-stats { padding: 4px 0; }
+    .game-page .stat { font-size: 0.35rem; gap: 2px; }
+    .game-page .stat-val { font-size: 0.6rem; }
+    .game-page .slot-knight { width: 120px; height: 170px; border-width: 2px; }
+
+    .game-page .mini-card { width: 55px; height: 77px; }
+    .game-page .mini-card-header { padding: 2px 1px; font-size: 0.25rem; min-height: 12px; border-bottom-width: 1px; }
+    .game-page .mini-card-stats { padding: 1px 0; min-height: 14px; }
+    .game-page .mini-card-stats .stat-val { font-size: 0.4rem; margin-top: 2px; }
+    .game-page .mini-card-face { border-width: 2px; }
+    .game-page .mini-card-cover { border-width: 2px; }
+    .game-page .mini-card-cover .text-5xl { font-size: 1.5rem; line-height: 1; }
+    .game-page .slot-weapon { width: 60px; height: 82px; border-width: 1px; }
+
+    .game-page .deck { width: 80px; height: 115px; border-width: 2px; }
+    .game-page .deck .text-5xl { font-size: 2rem; line-height: 1; }
+    .game-page .deck .deck-label { font-size: 0.4rem; }
+    .game-page .deck .deck-count { font-size: 0.7rem; margin-top: 0.25rem; }
+
+    .game-page .btn { padding: 8px 12px; font-size: 0.45rem; border-width: 2px; }
+
+    /* Animazioni Verticali Mobile */
+    @keyframes attackP1 {
+        0% { transform: translateY(0) rotate(0deg); z-index: 10; }
+        25% { transform: translateY(20px) rotate(-10deg); z-index: 10; }
+        50% { transform: translateY(-180px) rotate(20deg); z-index: 10; }
+        75% { transform: translateY(-90px) rotate(10deg); z-index: 10; }
+        100% { transform: translateY(0) rotate(0deg); z-index: 1; }
+    }
+    @keyframes attackP2 {
+        0% { transform: translateY(0) rotate(0deg); z-index: 10; }
+        25% { transform: translateY(-20px) rotate(10deg); z-index: 10; }
+        50% { transform: translateY(180px) rotate(-20deg); z-index: 10; }
+        75% { transform: translateY(90px) rotate(-10deg); z-index: 10; }
+        100% { transform: translateY(0) rotate(0deg); z-index: 1; }
+    }
+}
+
+/* Forza le dimensioni piene per lo ZOOM indipendentemente dallo schermo */
+.game-page .zoom-container .card { width: 220px; height: 320px; border-width: 4px; }
+.game-page .zoom-container .card-header { font-size: 0.6rem; padding: 10px 4px; border-bottom-width: 4px; }
+.game-page .zoom-container .stat { font-size: 0.5rem; gap: 6px; }
+.game-page .zoom-container .stat-val { font-size: 1rem; }
+.game-page .zoom-container .mini-card { width: 100px; height: 140px; }
+.game-page .zoom-container .mini-card-header { font-size: 0.4rem; min-height: 24px; padding: 4px 2px; border-bottom-width: 2px; }
+.game-page .zoom-container .mini-card-stats { padding: 2px 0; min-height: 28px; }
+.game-page .zoom-container .mini-card-stats .stat-val { font-size: 0.6rem; margin-top: 4px; }
+.game-page .zoom-container .mini-card-face { border-width: 3px; }
+
+/* Animazioni Combat e Interazioni Desktop (Default) */
+@media (min-width: 769px) {
+    @keyframes attackP1 {
+        0% { transform: translateX(0) rotate(0deg); z-index: 10; }
+        25% { transform: translateX(-20px) rotate(-10deg); z-index: 10; }
+        50% { transform: translateX(380px) rotate(20deg); z-index: 10; }
+        75% { transform: translateX(180px) rotate(10deg); z-index: 10; }
+        100% { transform: translateX(0) rotate(0deg); z-index: 1; }
+    }
+    @keyframes attackP2 {
+        0% { transform: translateX(0) rotate(0deg); z-index: 10; }
+        25% { transform: translateX(20px) rotate(10deg); z-index: 10; }
+        50% { transform: translateX(-380px) rotate(-20deg); z-index: 10; }
+        75% { transform: translateX(-180px) rotate(-10deg); z-index: 10; }
+        100% { transform: translateX(0) rotate(0deg); z-index: 1; }
+    }
+}
+
+@keyframes takeDamage {
+    0% { transform: translate(0, 0); filter: brightness(1) drop-shadow(0 0 0 red); }
+    20% { transform: translate(-15px, 12px) rotate(-5deg); filter: brightness(2) drop-shadow(0 0 15px red); }
+    40% { transform: translate(15px, -12px) rotate(5deg); filter: brightness(3); }
+    60% { transform: translate(-15px, -12px) rotate(-5deg); filter: brightness(2) drop-shadow(0 0 15px red); }
+    80% { transform: translate(15px, 12px) rotate(5deg); filter: brightness(1.5); }
+    100% { transform: translate(0, 0); filter: brightness(1) drop-shadow(0 0 0 red); }
+}
+@keyframes drawDynamic {
+    0% { transform: translate(var(--start-x), var(--start-y)) scale(0.2); opacity: 0; }
+    50% { transform: translate(calc(var(--start-x) * 0.5), calc(var(--start-y) * 0.5 - 20px)) scale(1.1); opacity: 1; }
+    100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes equipFly {
+    0% { transform: translate(0, 0) scale(1) rotate(0deg); z-index: 100; opacity: 1;}
+    100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(180deg); opacity: 0; z-index: 100; }
+}
+
+@keyframes auraRedFade { 0% { box-shadow: 0 0 0 rgba(255,0,0,0); filter: brightness(1); } 50% { box-shadow: 0 0 60px 20px rgba(255,0,0,0.9), inset 0 0 30px rgba(255,0,0,0.8); filter: brightness(1.8) saturate(2); } 100% { box-shadow: 0 0 0 rgba(255,0,0,0); filter: brightness(1); } }
+@keyframes auraGreenFade { 0% { box-shadow: 0 0 0 rgba(0,255,0,0); filter: brightness(1); } 50% { box-shadow: 0 0 60px 20px rgba(0,255,0,0.9), inset 0 0 30px rgba(0,255,0,0.8); filter: brightness(1.8) saturate(2); } 100% { box-shadow: 0 0 0 rgba(0,255,0,0); filter: brightness(1); } }
+@keyframes auraGoldFade { 0% { box-shadow: 0 0 0 rgba(255,215,0,0); filter: brightness(1); } 50% { box-shadow: 0 0 60px 20px rgba(255,215,0,0.9), inset 0 0 30px rgba(255,215,0,0.8); filter: brightness(1.8) saturate(2); } 100% { box-shadow: 0 0 0 rgba(255,215,0,0); filter: brightness(1); } }
+
+@keyframes errorVibrate {
+    0%, 100% { transform: scale(1.05) translateX(0); filter: brightness(1); }
+    20% { transform: scale(1.05) translateX(-4px); filter: brightness(1.5) drop-shadow(0 0 10px red); }
+    40% { transform: scale(1.05) translateX(4px); filter: brightness(1.5) drop-shadow(0 0 10px red); }
+    60% { transform: scale(1.05) translateX(-4px); filter: brightness(1.5) drop-shadow(0 0 10px red); }
+    80% { transform: scale(1.05) translateX(4px); filter: brightness(1.5) drop-shadow(0 0 10px red); }
+}
+
+/* 1. Terremoto */
+@keyframes shakeContinuous {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(2px, 2px) rotate(1deg); }
+    50% { transform: translate(-2px, -2px) rotate(-1deg); }
+    75% { transform: translate(-2px, 2px) rotate(1deg); }
+}
+.anim-shake-continuous { animation: shakeContinuous 0.2s infinite; }
+
+/* 2. Pioggia Divina */
+.terrain-pioggia::after {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(15deg, transparent, transparent 10px, rgba(77, 255, 77, 0.4) 11px, rgba(77, 255, 77, 0.4) 12px);
+    background-size: 100% 200%; animation: rainFall 0.8s linear infinite; pointer-events: none; z-index: 30;
+}
+@keyframes rainFall { 0% { background-position: 0% 0%; } 100% { background-position: 0% 100%; } }
+
+/* 3. Catene Infernali */
+.terrain-catene { animation: pulseCatene 1.5s infinite alternate; }
+.terrain-catene::after { content: ""; position: absolute; inset: 0; border: 6px dotted #5c1e06; box-shadow: inset 0 0 20px rgba(92, 30, 6, 0.8); pointer-events: none; z-index: 25; }
+@keyframes pulseCatene { 0% { transform: scale(1); filter: sepia(0); } 100% { transform: scale(1.05); filter: sepia(0.6) hue-rotate(-20deg); } }
+
+/* 4. Sonno */
+.terrain-sonno::before, .terrain-sonno::after { content: "Z"; position: absolute; color: #88ccff; font-family: 'Press Start 2P', monospace; opacity: 0; z-index: 30; pointer-events: none; animation: floatZ 3s infinite ease-in; text-shadow: 2px 2px 0 #000; }
+.terrain-sonno::before { left: 20%; bottom: 30%; font-size: 1.5rem; animation-delay: 0s; }
+.terrain-sonno::after { right: 30%; bottom: 50%; font-size: 1rem; animation-delay: 1.5s; }
+@keyframes floatZ { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(20px, -60px) scale(1.5); opacity: 0; } }
+
+/* 5. Riflesso */
+.terrain-riflesso::after { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.6) 50%, transparent 55%); animation: glassShine 2.5s infinite; pointer-events: none; z-index: 30; }
+@keyframes glassShine { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+.anim-attack-p1 { animation: attackP1 0.5s steps(5); }
+.anim-attack-p2 { animation: attackP2 0.5s steps(5); }
+.anim-damage { animation: takeDamage 0.5s steps(5); }
+.anim-draw-dynamic { animation: drawDynamic 0.4s steps(12) forwards; position: relative; z-index: 40; }
+.anim-equip { animation: equipFly 0.4s cubic-bezier(0.5, 0, 0.1, 1) forwards; position: relative; pointer-events: none; z-index: 40; }
+.anim-aura-red { animation: auraRedFade 0.6s steps(6); }
+.anim-aura-green { animation: auraGreenFade 0.6s steps(6); }
+.anim-aura-gold { animation: auraGoldFade 0.6s steps(6); }
+.anim-error { animation: errorVibrate 0.3s steps(4); }
+
+.blinded { opacity: 0.35; transition: opacity 0.3s ease-in-out; }
+
+.pixel-particle { position: absolute; width: 12px; height: 12px; z-index: 50; pointer-events: none; box-shadow: 2px 2px 0 rgba(0,0,0,0.5); animation: explodeParticle 0.6s steps(6) forwards; }
+@keyframes explodeParticle { 0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.2); opacity: 0; } }
