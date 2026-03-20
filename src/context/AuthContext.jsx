@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { getProfile, upsertProfile } from '../services/profiles';
 
@@ -7,91 +7,117 @@ const AuthContext = createContext({
   session: null,
   profile: null,
   loading: false,
+  profileLoading: false,
   refreshProfile: () => {},
 });
 
 /**
  * Garantisce che il profilo esista nel DB al primo login.
- * Se il trigger DB non ha ancora creato la riga, la crea qui.
+ * Retries up to 3 times with exponential backoff per gestire la race condition col trigger.
  */
 async function ensureProfile(u) {
   if (!u) return null;
-  let p = await getProfile(u.id);
-  if (!p) {
-    // Il trigger potrebbe non aver ancora scritto — upsert manuale
-    const meta = u.user_metadata ?? {};
-    p = await upsertProfile(u.id, {
-      username: meta.full_name || meta.name || null,
-      avatar_url: meta.avatar_url || null,
-    });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      let p = await getProfile(u.id);
+      if (p) return p;
+
+      if (attempt === 0) {
+        const meta = u.user_metadata ?? {};
+        p = await upsertProfile(u.id, {
+          username: meta.full_name || meta.name || null,
+          avatar_url: meta.avatar_url || null,
+        });
+        if (p) return p;
+      }
+    } catch (err) {
+      console.warn(`[Auth] ensureProfile attempt ${attempt + 1} failed:`, err.message);
+    }
+    // Exponential backoff: 500ms → 1500ms → 4500ms
+    await new Promise(r => setTimeout(r, 500 * Math.pow(3, attempt)));
   }
-  return p;
+  return null;
 }
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  // Se Supabase non è configurato, loading rimane false
   const [loading, setLoading] = useState(!!supabase);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Guard: prevent signOut → onAuthStateChange → loadProfile infinite loop
+  const signingOutRef = useRef(false);
 
   const loadProfile = useCallback(async (u) => {
-    if (!u) { setProfile(null); return; }
-    const p = await ensureProfile(u);
-    if (!p) {
-      // Profilo non trovato e upsert fallito → sessione fantasma
-      console.warn('[Auth] Profilo non trovato — sign out forzato');
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
+    if (!u) { setProfile(null); setProfileLoading(false); return; }
+    setProfileLoading(true);
+    try {
+      const p = await ensureProfile(u);
+      if (!p) {
+        if (!signingOutRef.current) {
+          signingOutRef.current = true;
+          console.warn('[Auth] Profilo non trovato — sign out forzato');
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          signingOutRef.current = false;
+        }
+        return;
+      }
+      setProfile(p);
+    } catch (err) {
+      console.error('[Auth] loadProfile error:', err);
       setProfile(null);
-      return;
+    } finally {
+      setProfileLoading(false);
     }
-    setProfile(p);
   }, []);
 
-  // Esposta per forzare ricarica del profilo (es. dopo pagamento)
-  const refreshProfile = useCallback(() => {
-    if (user) loadProfile(user);
+  const refreshProfile = useCallback(async () => {
+    if (user) await loadProfile(user);
   }, [user, loadProfile]);
 
   useEffect(() => {
     if (!supabase) return;
 
-    // Recupera sessione iniziale
+    // Recupera sessione — sblocca il routing appena validata
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      // Se c'è una sessione in cache, validala SEMPRE contro il server.
-      // getSession() legge solo il localStorage — non verifica che l'utente
-      // esista ancora su Supabase. getUser() fa una chiamata al server
-      // e fallisce se l'account è stato eliminato o il token revocato.
-      if (s) {
-        const { error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          console.warn('[Auth] Token non valido lato server — sign out forzato:', userError.message);
-          await supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
-          return;
+      try {
+        if (s) {
+          const { error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            console.warn('[Auth] Token non valido — sign out forzato:', userError.message);
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            return;
+          }
         }
-      }
-
-      setSession(s);
-      const u = s?.user ?? null;
-      setUser(u);
-      await loadProfile(u);
-      setLoading(false);
-    });
-
-    // Ascolta cambi di auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
         setSession(s);
         const u = s?.user ?? null;
         setUser(u);
-        await loadProfile(u);
+        // Profile loads asynchronously — non blocca il routing
+        if (u) loadProfile(u);
+      } catch (err) {
+        console.error('[Auth] Session init error:', err);
+      } finally {
         setLoading(false);
+      }
+    });
+
+    // Ascolta cambi di auth (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, s) => {
+        if (signingOutRef.current && !s) return;
+        setSession(s);
+        const u = s?.user ?? null;
+        setUser(u);
+        setLoading(false);
+        if (u) loadProfile(u);
+        else setProfile(null);
       }
     );
 
@@ -99,7 +125,7 @@ export function AuthProvider({ children }) {
   }, [loadProfile]);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, profileLoading, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

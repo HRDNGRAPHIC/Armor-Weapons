@@ -11,10 +11,15 @@ export default function Leaderboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const data = await getLeaderboard(50);
-      if (!cancelled) {
-        setPlayers(data);
-        setLoading(false);
+      try {
+        const data = await getLeaderboard(50);
+        if (!cancelled) {
+          setPlayers(data);
+        }
+      } catch (err) {
+        console.error('[Leaderboard] fetch error:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };

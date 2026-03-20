@@ -350,3 +350,42 @@ CREATE POLICY "profiles_select_all"
 | Il Deck Builder mostra tutte le carte come "x0" | L'utente non ha ancora aperto pacchetti. Apri un pack nella Lobby prima. |
 | Il badge nella Navbar non appare | Controlla `user_packs` — l'utente ha righe con `redeemed = false`? |
 | "permission denied for table user_packs" | La funzione del trigger deve avere `SECURITY DEFINER`. Riesegui STEP 4. |
+
+---
+
+## ⚔️ STEP 8 — Colonna `is_new` su `user_collection` + Gestione Quantità Duplicati
+
+### 8.1 — Aggiungere la colonna `is_new`
+
+Il sistema "Badge Nuovo" marca le carte appena ottenute con un pallino rosso pulsante.
+Al primo zoom/ispezione nella Collezione, il badge scompare e non riappare più.
+
+```sql
+-- ══════════════════════════════════════════════════════════
+-- COLONNA is_new: segna le carte come "nuove" finché
+-- l'utente non le ispeziona nella Collezione.
+-- ══════════════════════════════════════════════════════════
+
+ALTER TABLE public.user_collection
+  ADD COLUMN IF NOT EXISTS is_new boolean NOT NULL DEFAULT true;
+
+-- Le carte già esistenti nel DB sono state già viste → false
+UPDATE public.user_collection SET is_new = false WHERE is_new = true;
+```
+
+### 8.2 — Gestione quantità e duplicati
+
+La colonna `quantity` su `user_collection` gestisce automaticamente i duplicati:
+- Ogni carta unica ha una riga con `quantity` >= 1
+- Aprendo un pacchetto con una carta già posseduta, il sistema fa **upsert** incrementando `quantity`
+- Nel Deck Builder, il giocatore può schierare fino a **5 copie** della stessa carta se le possiede
+- Il generatore casuale ("Genera Mazzo Casuale") pesca dalla collezione reale rispettando i duplicati
+
+> **Nota**: Non serve modificare lo schema per i duplicati — la colonna `quantity` è già presente dalla creazione iniziale della tabella `user_collection`. Il Deck Builder salva array JSON con catalogId ripetuti (es. `["K000","K000","K001","K002","K003"]` per 2 copie di K000).
+
+### 8.3 — Verifica
+
+1. Apri un pacchetto → le carte nuove nella **Collezione** mostrano un pallino rosso pulsante
+2. Clicca su una carta nuova per ispezionarla → chiudi lo zoom → il pallino scompare
+3. Nel **Deck Builder**, se possiedi 3 copie di una carta, puoi aggiungerne fino a 3 nel mazzo
+4. Il tasto "INIZIA PARTITA" si attiva solo con **5 cavalieri + 45 carte equipaggiamento**

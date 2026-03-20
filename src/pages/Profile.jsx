@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Navbar from '../components/layout/Navbar';
 import { useAuth } from '../context/AuthContext';
-import { signOut } from '../services/auth';
+import { supabase } from '../services/supabase';
 import { upsertProfile } from '../services/profiles';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,8 +18,13 @@ export default function Profile() {
   const avatarUrl = user?.user_metadata?.avatar_url;
 
   async function handleLogout() {
-    await signOut();
-    navigate('/', { replace: true });
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (err) {
+      console.error('[Profile] signOut error:', err);
+    }
+    // Force full page reload to wipe all in-memory state
+    window.location.href = '/login';
   }
 
   async function handleSaveName() {

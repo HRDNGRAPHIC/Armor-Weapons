@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/layout/Navbar';
 import { CARD_CATALOG } from '../game/data/cardCatalog';
 import { useAuth } from '../context/AuthContext';
-import { getCollectionMap } from '../services/collection';
+import { getCollectionMap, getNewCards, markCardSeen } from '../services/collection';
 import { playMedievalSound } from '../game/data/medievalAudio';
 
 const TYPE_ICONS = {
@@ -25,23 +26,65 @@ const TYPE_LABELS = {
   terrain: 'Terreni',
 };
 
-/* ── Zoom Overlay ── */
-function CardZoom({ card, owned, onClose }) {
+const ZOOM_DURATION = 0.3;
+
+/* ── Zoom Overlay with 3D tilt + badge (inspection only) ── */
+function CardZoom({ card, owned, isNew, onClose, layoutId }) {
   const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
+  const cardRef = useRef(null);
+  const [tilt, setTilt] = useState({ rotateX: 0, rotateY: 0 });
+
+  const handleMouseMove = useCallback((e) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const rotateX = ((y - rect.height / 2) / (rect.height / 2)) * -15;
+    const rotateY = ((x - rect.width / 2) / (rect.width / 2)) * 15;
+    setTilt({ rotateX, rotateY });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setTilt({ rotateX: 0, rotateY: 0 });
+  }, []);
+
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+    <motion.div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      initial={{ backgroundColor: 'rgba(0,0,0,0)', backdropFilter: 'blur(0px)' }}
+      animate={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
+      exit={{ backgroundColor: 'rgba(0,0,0,0)', backdropFilter: 'blur(0px)' }}
+      transition={{ duration: ZOOM_DURATION, ease: 'easeOut' }}
       onClick={onClose}
     >
-      <div
+      <motion.div
+        ref={cardRef}
+        layoutId={layoutId}
         className="relative max-w-sm w-full mx-4 rounded-2xl overflow-hidden"
         style={{
           background: '#12121a',
           border: `3px solid ${borderColor}`,
           boxShadow: `0 0 40px ${borderColor}44`,
+          perspective: 800,
+          transformStyle: 'preserve-3d',
         }}
+        animate={{ rotateX: tilt.rotateX, rotateY: tilt.rotateY }}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         onClick={e => e.stopPropagation()}
       >
+        {/* "NEW" pulsing badge — only shown on zoom inspection */}
+        {isNew && (
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
+            <span className="flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
+            </span>
+            <span className="text-red-400 text-[10px] font-bold uppercase tracking-wider">Nuova</span>
+          </div>
+        )}
+
         {/* Art area */}
         <div className="aspect-[3/4] bg-black flex items-center justify-center p-6">
           <span className="text-7xl">{TYPE_ICONS[card.type]}</span>
@@ -57,7 +100,6 @@ function CardZoom({ card, owned, onClose }) {
             </span>
           </div>
 
-          {/* Stats */}
           <div className="flex gap-4 mb-3 text-sm">
             {card.type === 'knight' && (
               <>
@@ -89,8 +131,8 @@ function CardZoom({ card, owned, onClose }) {
         >
           ✕
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -98,6 +140,7 @@ function CardZoom({ card, owned, onClose }) {
 export default function Collection() {
   const { user } = useAuth();
   const [owned, setOwned] = useState({});
+  const [newCards, setNewCards] = useState(new Set());
   const [filter, setFilter] = useState('Tutti');
   const [search, setSearch] = useState('');
   const [zoomedCard, setZoomedCard] = useState(null);
@@ -105,7 +148,27 @@ export default function Collection() {
   useEffect(() => {
     if (!user) return;
     getCollectionMap(user.id).then(setOwned);
+    getNewCards(user.id).then(setNewCards);
   }, [user]);
+
+  // Open zoom — no side effects here
+  const handleZoom = useCallback((card) => {
+    playMedievalSound('click');
+    setZoomedCard(card);
+  }, []);
+
+  // Close zoom — mark as seen on close if it was new
+  const handleCloseZoom = useCallback(() => {
+    if (zoomedCard && user && newCards.has(zoomedCard.catalogId)) {
+      markCardSeen(user.id, zoomedCard.catalogId);
+      setNewCards(prev => {
+        const next = new Set(prev);
+        next.delete(zoomedCard.catalogId);
+        return next;
+      });
+    }
+    setZoomedCard(null);
+  }, [zoomedCard, user, newCards]);
 
   const filteredCards = useMemo(() => {
     return CARD_CATALOG.filter(c => {
@@ -132,7 +195,6 @@ export default function Collection() {
             Esplora tutte le carte. Clicca per ingrandirle.
           </p>
 
-          {/* Stats bar */}
           <div className="flex flex-wrap gap-3 mb-6 text-[11px]">
             <span className="px-3 py-1.5 bg-fantasy-card border border-fantasy-border rounded-lg text-fantasy-silver">
               📦 {uniqueOwned}/{CARD_CATALOG.length} carte uniche
@@ -142,7 +204,6 @@ export default function Collection() {
             </span>
           </div>
 
-          {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <input
               type="text"
@@ -168,16 +229,17 @@ export default function Collection() {
             </div>
           </div>
 
-          {/* Card grid */}
+          {/* Card grid — plain cards, NO 3D tilt, NO badge in grid */}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {filteredCards.map(card => {
               const qty = owned[card.catalogId] ?? 0;
               const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
               return (
-                <button
+                <motion.div
                   key={card.catalogId}
-                  onClick={() => { setZoomedCard(card); playMedievalSound('click'); }}
-                  className="relative rounded-xl overflow-hidden text-left transition-all duration-200 hover:-translate-y-1"
+                  layoutId={`card-${card.catalogId}`}
+                  onClick={() => handleZoom(card)}
+                  className="relative rounded-xl overflow-hidden text-left cursor-pointer transition-transform duration-200 hover:scale-[1.03]"
                   style={{
                     background: qty > 0 ? '#12121a' : '#0a0a0f',
                     border: `2px solid ${qty > 0 ? borderColor : '#1a1a2a'}`,
@@ -206,7 +268,7 @@ export default function Collection() {
                   >
                     x{qty}
                   </div>
-                </button>
+                </motion.div>
               );
             })}
           </div>
@@ -219,14 +281,18 @@ export default function Collection() {
         </div>
       </div>
 
-      {/* Zoom overlay */}
-      {zoomedCard && (
-        <CardZoom
-          card={zoomedCard}
-          owned={owned[zoomedCard.catalogId] ?? 0}
-          onClose={() => setZoomedCard(null)}
-        />
-      )}
+      {/* Zoom overlay — 3D tilt + badge active HERE only */}
+      <AnimatePresence>
+        {zoomedCard && (
+          <CardZoom
+            card={zoomedCard}
+            owned={owned[zoomedCard.catalogId] ?? 0}
+            isNew={newCards.has(zoomedCard.catalogId)}
+            onClose={handleCloseZoom}
+            layoutId={`card-${zoomedCard.catalogId}`}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

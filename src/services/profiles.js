@@ -33,7 +33,7 @@ export async function upsertProfile(userId, updates) {
 
   if (error) {
     console.error('upsertProfile error:', error);
-    throw error;
+    return null;
   }
   return data;
 }

@@ -11,6 +11,7 @@ import { playMedievalSound } from '../game/data/medievalAudio';
 import { addCardsToCollection } from '../services/collection';
 import { redeemPack } from '../services/packs';
 import { useAuth } from '../context/AuthContext';
+import TiltCard from './TiltCard';
 
 /* ── Particles ────────────────────────────────────── */
 function Particles({ count = 30, color = '#c9a84c' }) {
@@ -381,21 +382,24 @@ export default function PackOpening({ packType = 'standard', packId = null, onCl
                   return (
                     <motion.div
                       key={i}
-                      className="w-20 sm:w-24 rounded-xl border-2 overflow-hidden"
-                      style={{
-                        borderColor: rc.border,
-                        background: '#12121a',
-                        boxShadow: `0 0 12px ${rc.glow}`,
-                      }}
                       initial={{ scale: 0, rotate: -10 }}
                       animate={{ scale: 1, rotate: 0 }}
                       transition={{ delay: i * 0.1, type: 'spring', stiffness: 300 }}
                     >
-                      <div className="aspect-[3/4] p-1.5 flex flex-col items-center justify-between">
-                        <span className="text-lg">{TYPE_ICONS[card.type]}</span>
-                        <p className="font-display font-semibold text-white text-[8px] text-center leading-tight">{card.name}</p>
-                        <p className="text-[7px] font-bold" style={{ color: rc.border }}>{card.rarity.label}</p>
-                      </div>
+                      <TiltCard
+                        className="w-20 sm:w-24 rounded-xl border-2 overflow-hidden"
+                        style={{
+                          borderColor: rc.border,
+                          background: '#12121a',
+                          boxShadow: `0 0 12px ${rc.glow}`,
+                        }}
+                      >
+                        <div className="aspect-[3/4] p-1.5 flex flex-col items-center justify-between">
+                          <span className="text-lg">{TYPE_ICONS[card.type]}</span>
+                          <p className="font-display font-semibold text-white text-[8px] text-center leading-tight">{card.name}</p>
+                          <p className="text-[7px] font-bold" style={{ color: rc.border }}>{card.rarity.label}</p>
+                        </div>
+                      </TiltCard>
                     </motion.div>
                   );
                 })}

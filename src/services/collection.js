@@ -69,3 +69,33 @@ export async function getCollectionMap(userId) {
   });
   return map;
 }
+
+/**
+ * Get a set of catalogIds that are "new" (is_new = true).
+ * Returns Set<string>.
+ */
+export async function getNewCards(userId) {
+  if (!supabase || !userId) return new Set();
+  const { data, error } = await supabase
+    .from('user_collection')
+    .select('catalog_id')
+    .eq('user_id', userId)
+    .eq('is_new', true);
+  if (error) {
+    console.error('getNewCards error:', error);
+    return new Set();
+  }
+  return new Set((data ?? []).map(r => r.catalog_id));
+}
+
+/**
+ * Mark a card as seen (is_new = false).
+ */
+export async function markCardSeen(userId, catalogId) {
+  if (!supabase || !userId) return;
+  await supabase
+    .from('user_collection')
+    .update({ is_new: false })
+    .eq('user_id', userId)
+    .eq('catalog_id', catalogId);
+}

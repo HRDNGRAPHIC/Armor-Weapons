@@ -1,9 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { generateCard, generateEquipmentDeck, createDeck, getInitialState } from './data/gameData';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { generateCard, generateEquipmentDeck, createDeck, getInitialState, getPixelSVG, pixelArtsKnights, pixelArtsWeapons, pixelArtsShields, pixelArtsItems, pixelArtsTerrains } from './data/gameData';
 import { playSound } from './data/gameAudio';
 import { useAuth } from '../context/AuthContext';
 import { recordGameResult } from '../services/elo';
+import { CARD_CATALOG } from './data/cardCatalog';
 
 /*
  * GameBoard — 1:1 port of A&Wmobile.html
@@ -11,15 +12,73 @@ import { recordGameResult } from '../services/elo';
  * All game logic is copied word-for-word from the original HTML file.
  */
 
+/**
+ * Map saved deck catalogIds to game-engine card objects.
+ * Knights → {id, name, baseAtk, atk, baseDef, def, maxDef, basePa, pa, art}
+ * Equipment → {id, type, name, bonus/cu/desc/itemId/terrainId, art}
+ */
+function buildPlayerDeck(knightIds, cardIds) {
+  const knights = knightIds.map(cid => {
+    const cat = CARD_CATALOG.find(c => c.catalogId === cid);
+    if (!cat) return generateCard();
+    return {
+      id: Math.random().toString(36).substr(2, 9),
+      name: cat.name,
+      baseAtk: cat.baseAtk, atk: cat.baseAtk,
+      baseDef: cat.baseDef, def: cat.baseDef, maxDef: cat.baseDef,
+      basePa: cat.basePa, pa: cat.basePa,
+      art: getPixelSVG(pixelArtsKnights[0]),
+    };
+  });
+
+  const equipment = cardIds.map(cid => {
+    const cat = CARD_CATALOG.find(c => c.catalogId === cid);
+    if (!cat) return null;
+    const base = { id: Math.random().toString(36).substr(2, 9), name: cat.name };
+    if (cat.type === 'weapon') return { ...base, type: 'arma', bonus: cat.atkBonus, cu: Math.max(1, cat.atkBonus - Math.floor(Math.random() * 2)), art: getPixelSVG(pixelArtsWeapons[0]) };
+    if (cat.type === 'shield') return { ...base, type: 'scudo', bonus: cat.defBonus, cu: Math.max(1, cat.defBonus - Math.floor(Math.random() * 2)), art: getPixelSVG(pixelArtsShields[0]) };
+    if (cat.type === 'item') return { ...base, type: 'oggetto', itemId: cat.itemId, cu: cat.cu, desc: cat.desc, art: getPixelSVG(pixelArtsItems[0]) };
+    if (cat.type === 'terrain') return { ...base, type: 'terreno', itemId: cat.terrainId, cu: 0, desc: cat.desc, art: getPixelSVG(pixelArtsTerrains[0]) };
+    return null;
+  }).filter(Boolean);
+
+  // Shuffle equipment into 9-card chunks like generateEquipmentDeck
+  for (let i = equipment.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [equipment[i], equipment[j]] = [equipment[j], equipment[i]];
+  }
+
+  return { knights, equipment };
+}
+
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export default function GameBoard() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, refreshProfile } = useAuth();
     const stateRef = useRef(getInitialState());
     const zoomOriginRef = useRef({ x: 0, y: 0 });
     const containerRef = useRef(null);
     const initRef = useRef(false);
+
+    // ── Reactive State (drives button disabled & AI trigger) ──
+    const [reactTurn, setReactTurn] = useState(1);
+    const [reactInit, setReactInit] = useState(false);
+    const [reactAttacked, setReactAttacked] = useState(false);
+    const [reactOver, setReactOver] = useState(false);
+    const [reactPaused, setReactPaused] = useState(false);
+    const [reactP1Card, setReactP1Card] = useState(false);
+
+    const syncReactState = useCallback(() => {
+        const s = stateRef.current;
+        setReactTurn(s.turn);
+        setReactInit(s.isInitializing);
+        setReactAttacked(s.hasAttacked);
+        setReactOver(s.gameOver);
+        setReactPaused(s.isPaused);
+        setReactP1Card(!!s.p1.activeCard);
+    }, []);
 
     // --- Helper: get DOM element by ID within our container ---
     const $ = useCallback((id) => {
@@ -195,11 +254,6 @@ export default function GameBoard() {
             const p2Deck = el('p2-deck');
             const p2WeaponDeck = el('p2-weapon-deck');
             if (p2Deck) p2Deck.classList.add('disabled'); if (p2WeaponDeck) p2WeaponDeck.classList.add('disabled');
-
-            const btnAtk = el('btn-atk-1');
-            const btnEnd = el('btn-end-1');
-            if (btnAtk) btnAtk.disabled = state.isInitializing || state.isPaused || (!state.p1.activeCard || state.hasAttacked);
-            if (btnEnd) btnEnd.disabled = state.isInitializing || state.isPaused || (!state.p1.activeCard);
         } else {
             if (tInd) { tInd.innerText = "TURNO: GIOCATORE 2 (IA)"; tInd.classList.replace('text-red-500', 'text-blue-500'); }
             if (s2) s2.classList.add('active-player-glow'); if (s1) s1.classList.remove('active-player-glow');
@@ -209,15 +263,14 @@ export default function GameBoard() {
             const p1WeaponDeck = el('p1-weapon-deck');
             if (p2Deck) p2Deck.classList.add('disabled'); if (p2WeaponDeck) p2WeaponDeck.classList.add('disabled');
             if (p1Deck) p1Deck.classList.add('disabled'); if (p1WeaponDeck) p1WeaponDeck.classList.add('disabled');
-            const btnAtk = el('btn-atk-1');
-            const btnEnd = el('btn-end-1');
-            if (btnAtk) btnAtk.disabled = true; if (btnEnd) btnEnd.disabled = true;
         }
 
         // Re-bind weapon click handlers after innerHTML update
         rebindWeaponHandlers();
         rebindKnightHandlers();
-    }, [$, renderCardHTML, renderWeaponHTML]);
+        // Sync mutable stateRef → React state (buttons, AI trigger)
+        syncReactState();
+    }, [$, renderCardHTML, renderWeaponHTML, syncReactState]);
 
     // --- SHATTER CARD (exact copy) ---
     const shatterCard = useCallback((cardEl) => {
@@ -356,6 +409,7 @@ export default function GameBoard() {
     const showGameOver = useCallback(async (message) => {
         let state = stateRef.current;
         state.gameOver = true;
+        syncReactState();
         const winnerText = $('winner-text');
         const gameOverScreen = $('game-over-screen');
         if (winnerText) winnerText.innerText = message;
@@ -369,7 +423,7 @@ export default function GameBoard() {
             await recordGameResult(user.id, outcome);
             refreshProfile();
         }
-    }, [$, user, refreshProfile]);
+    }, [$, user, refreshProfile, syncReactState]);
 
     // --- ABANDON GAME ---
     const abandonGame = useCallback(async () => {
@@ -377,6 +431,7 @@ export default function GameBoard() {
         if (state.gameOver) { navigate('/lobby'); return; }
         state.gameOver = true;
         state.isPaused = false;
+        syncReactState();
         const pauseMenu = $('pause-menu');
         if (pauseMenu) { pauseMenu.classList.add('hidden'); pauseMenu.classList.remove('flex'); }
         if (user) {
@@ -384,7 +439,7 @@ export default function GameBoard() {
             refreshProfile();
         }
         navigate('/lobby');
-    }, [$, user, refreshProfile, navigate]);
+    }, [$, user, refreshProfile, navigate, syncReactState]);
 
     const checkWinCondition = useCallback(() => {
         let state = stateRef.current;
@@ -485,14 +540,7 @@ export default function GameBoard() {
             }
         }
         updateUI();
-        if (state.turn === 2) {
-            playAITurnRef.current();
-        } else {
-            // Safety: ensure P1 buttons are re-enabled after AI turn ends
-            setTimeout(() => {
-                if (!stateRef.current.gameOver && stateRef.current.turn === 1) updateUI();
-            }, 100);
-        }
+        // AI trigger handled reactively by useEffect watching reactTurn
     }, [processBuffs, updateUI]);
     endTurnRef.current = endTurn;
 
@@ -504,7 +552,7 @@ export default function GameBoard() {
         let attacker = playerNum === 1 ? state.p1 : state.p2; let defenderNum = playerNum === 1 ? 2 : 1; let defender = playerNum === 1 ? state.p2 : state.p1;
         if (!attacker.activeCard) return; if (attacker.buffs.some(b => b.id === 'noAttack' || b.id === 'sabbia')) { triggerError(`card-${attacker.activeCard.id}`); return; }
 
-        if (playerNum === 1) { const btnAtk = $('btn-atk-1'); const btnEnd = $('btn-end-1'); if (btnAtk) btnAtk.disabled = true; if (btnEnd) btnEnd.disabled = true; }
+        syncReactState();
         const atkCardEl = $(`card-${attacker.activeCard.id}`); let isSlow = state.activeTerrain && state.activeTerrain.id === 'sonno'; let animDur = isSlow ? 1500 : 500;
 
         if (atkCardEl) { atkCardEl.style.animationDuration = `${animDur}ms`; atkCardEl.classList.add(`anim-attack-p${playerNum}`); }
@@ -526,7 +574,7 @@ export default function GameBoard() {
                 } else { setTimeout(() => { if(defCardEl) defCardEl.classList.remove('anim-damage'); updateUI(); if (!state.gameOver) endTurnRef.current(playerNum); }, 500); }
             }, animDur / 2);
         } else { setTimeout(() => { updateUI(); if (!state.gameOver) endTurnRef.current(playerNum); }, animDur); }
-    }, [$, getFinalStats, triggerError, shatterCard, updateUI, checkWinCondition]);
+    }, [$, getFinalStats, triggerError, shatterCard, updateUI, checkWinCondition, syncReactState]);
 
     // --- AI TURN (exact copy) ---
     const checkPause = useCallback(async () => { while (stateRef.current.isPaused) await wait(200); }, []);
@@ -632,12 +680,37 @@ export default function GameBoard() {
         let state = stateRef.current;
         state.turn = 1; state.hasAttacked = false; state.gameOver = false; state.isInitializing = true; state.isPaused = false;
         state.activeTerrain = null;
-        ['p1', 'p2'].forEach(p => { state[p].deck = createDeck(generateCard, 5); state[p].weaponDeck = generateEquipmentDeck(); state[p].cardsLeft = 5; state[p].weaponsLeft = 45; state[p].activeCard = null; state[p].weaponSlots = [null, null, null]; state[p].hasDrawnWeapon = false; state[p].hasUsedRedraw = false; state[p].buffs = []; state[p].weaponAtkGainedThisTurn = 0; state[p].lastTurnWeaponAtk = 0; });
+
+        // Check if a saved deck was passed via navigation state
+        const deckState = location.state;
+        if (deckState?.knights?.length && deckState?.cards?.length) {
+            const { knights, equipment } = buildPlayerDeck(deckState.knights, deckState.cards);
+            state.p1.deck = knights;
+            state.p1.weaponDeck = equipment;
+            state.p1.cardsLeft = knights.length;
+            state.p1.weaponsLeft = equipment.length;
+        } else {
+            state.p1.deck = createDeck(generateCard, 5);
+            state.p1.weaponDeck = generateEquipmentDeck();
+            state.p1.cardsLeft = 5;
+            state.p1.weaponsLeft = 45;
+        }
+        state.p1.activeCard = null; state.p1.weaponSlots = [null, null, null]; state.p1.hasDrawnWeapon = false; state.p1.hasUsedRedraw = false; state.p1.buffs = []; state.p1.weaponAtkGainedThisTurn = 0; state.p1.lastTurnWeaponAtk = 0;
+
+        // AI always gets random deck
+        state.p2.deck = createDeck(generateCard, 5); state.p2.weaponDeck = generateEquipmentDeck(); state.p2.cardsLeft = 5; state.p2.weaponsLeft = 45;
+        state.p2.activeCard = null; state.p2.weaponSlots = [null, null, null]; state.p2.hasDrawnWeapon = false; state.p2.hasUsedRedraw = false; state.p2.buffs = []; state.p2.weaponAtkGainedThisTurn = 0; state.p2.lastTurnWeaponAtk = 0;
+
         const gameOverScreen = $('game-over-screen');
         if (gameOverScreen) gameOverScreen.classList.add('hidden');
-        updateUI(); await wait(500); drawCard(1, true); await wait(600); drawCard(2, true); await wait(400);
-        state.isInitializing = false; updateUI();
-    }, [$, updateUI, drawCard]);
+        try {
+            updateUI(); await wait(500); drawCard(1, true); await wait(600); drawCard(2, true); await wait(400);
+        } catch (err) {
+            console.error('[GameBoard] initGame error:', err);
+        } finally {
+            state.isInitializing = false; updateUI();
+        }
+    }, [$, updateUI, drawCard, location.state]);
 
     // --- KEYBOARD HANDLER ---
     useEffect(() => {
@@ -663,6 +736,13 @@ export default function GameBoard() {
         // Small delay to allow DOM to render
         setTimeout(() => initGame(), 100);
     }, [initGame]);
+
+    // --- AI TURN: triggered reactively when turn changes to 2 ---
+    useEffect(() => {
+        if (reactTurn === 2 && !reactOver && !reactInit) {
+            playAITurnRef.current();
+        }
+    }, [reactTurn, reactOver, reactInit]);
 
     // --- RENDER (exact HTML structure from A&Wmobile.html) ---
     return (
@@ -709,8 +789,8 @@ export default function GameBoard() {
                         </div>
                     </div>
                     <div className="flex justify-center gap-2 md:gap-4 mt-4 md:mt-6">
-                        <button id="btn-atk-1" className="btn" onClick={() => attack(1)} disabled>Combatti</button>
-                        <button id="btn-end-1" className="btn" onClick={() => endTurnRef.current(1)} disabled>Fine Turno</button>
+                        <button id="btn-atk-1" className="btn" onClick={() => attack(1)} disabled={reactInit || reactPaused || reactTurn !== 1 || !reactP1Card || reactAttacked || reactOver}>Combatti</button>
+                        <button id="btn-end-1" className="btn" onClick={() => endTurnRef.current(1)} disabled={reactInit || reactPaused || reactTurn !== 1 || !reactP1Card || reactOver}>Fine Turno</button>
                     </div>
                 </section>
 

@@ -86,7 +86,13 @@ export default function Navbar() {
                     : 'text-fantasy-silver hover:text-white hover:bg-white/5'
                   }`}
               >
-                Pacchetti
+                {/* Chest icon */}
+                <svg width="20" height="18" viewBox="0 0 20 18" fill="none" className="inline-block align-middle">
+                  <rect x="1" y="6" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  <path d="M1 9h18" stroke="currentColor" strokeWidth="1" />
+                  <path d="M4 6V4a6 6 0 0 1 12 0v2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                  <rect x="8.5" y="10" width="3" height="3" rx="0.5" fill="currentColor" />
+                </svg>
                 {/* Red pulsing dot */}
                 {pendingPacks > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
@@ -181,7 +187,7 @@ export default function Navbar() {
                   onClick={() => setMobileOpen(false)}
                   className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-fantasy-gold hover:bg-fantasy-gold/10 transition"
                 >
-                  🎁 Pacchetti
+                  📦 Forzieri
                   <span className="flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-red-500 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600" />

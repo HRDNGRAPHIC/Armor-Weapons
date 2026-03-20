@@ -42,13 +42,13 @@ const PACKS = [
 export default function Shop() {
   const { user, profile, refreshProfile } = useAuth();
   const [openingPack, setOpeningPack] = useState(null);
-  const coins = profile?.coins ?? 0;
+  const gold = profile?.gold ?? 0;
 
   async function handleBuy(pack) {
-    if (coins < pack.price || !user) return;
+    if (gold < pack.price || !user) return;
     try {
-      await upsertProfile(user.id, { coins: coins - pack.price });
-      refreshProfile();
+      await upsertProfile(user.id, { gold: gold - pack.price });
+      await refreshProfile();
       setOpeningPack(pack.packType);
     } catch (err) {
       console.error('Errore acquisto:', err);
@@ -64,12 +64,12 @@ export default function Shop() {
             <h1 className="font-display font-bold text-3xl text-white">
               <span className="text-gold-gradient">Negozio</span>
             </h1>
-            <div className="text-fantasy-gold font-bold">🪙 {coins}</div>
+            <div className="text-fantasy-gold font-bold">🪙 {gold}</div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {PACKS.map((pack) => {
-              const canAfford = coins >= pack.price;
+              const canAfford = gold >= pack.price;
               return (
                 <div
                   key={pack.id}
@@ -102,7 +102,7 @@ export default function Shop() {
       {openingPack && (
         <PackOpening
           packType={openingPack}
-          onClose={() => setOpeningPack(null)}
+          onClose={() => { setOpeningPack(null); refreshProfile(); }}
         />
       )}
     </div>

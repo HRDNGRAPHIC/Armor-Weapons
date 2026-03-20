@@ -60,28 +60,28 @@ export default function Homepage() {
           HERO SECTION
           ══════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-        {/* Background overlay gradients */}
+        {/* Background overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-fantasy-darker via-fantasy-dark/80 to-fantasy-darker" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(201,168,76,0.08)_0%,_transparent_70%)]" />
 
-        {/* Decorative particles / ambient */}
+        {/* Decorative particles */}
         <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-fantasy-gold/5 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fantasy-purple/5 rounded-full blur-3xl animate-pulse" />
 
         <div className="relative z-10 max-w-5xl mx-auto text-center px-4 sm:px-6">
           {/* Tagline */}
           <p className="text-fantasy-gold font-display text-sm sm:text-base uppercase tracking-[0.3em] mb-4 animate-fade-in">
-            Il gioco di carte collezionabili definitivo
+            Gioco di carte strategico 
           </p>
 
-          {/* Main Title */}
+          {/* Titolo principale */}
           <h1 className="font-display font-black text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-tight mb-6">
             <span className="text-gold-gradient">Armor</span>
             <span className="text-white">&nbsp;&amp;&nbsp;</span>
             <span className="text-gold-gradient">Weapons</span>
           </h1>
 
-          {/* Subtitle */}
+          {/* Sottotitolo */}
           <p className="text-fantasy-silver text-lg sm:text-xl md:text-2xl max-w-2xl mx-auto mb-10 leading-relaxed">
             Costruisci il mazzo perfetto. Scatena il potere delle carte leggendarie.
             Sfida i campioni di tutto il mondo.

@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/layout/Navbar';
 import { CARD_CATALOG } from '../game/data/cardCatalog';
 import { useAuth } from '../context/AuthContext';
@@ -19,21 +21,169 @@ const RARITY_BORDER = {
 
 const MIN_KNIGHTS = 5;
 const MAX_DECK = 45;
+const MAX_COPIES = 5;
 
+/* ── Quantity Selector Popup ─────────────────────── */
+function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
+  const [qty, setQty] = useState(1);
+  const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
+
+  function handleChange(newVal) {
+    const clamped = Math.max(1, Math.min(maxQty, newVal));
+    if (clamped !== qty) {
+      playMedievalSound('click');
+      setQty(clamped);
+    }
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[300] flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={onClose}
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+    >
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        onClick={e => e.stopPropagation()}
+        className="w-72 sm:w-80 rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(145deg, #12121a 0%, #1a1a2e 50%, #0a0a0f 100%)',
+          border: `3px solid ${borderColor}`,
+          boxShadow: `0 0 40px ${borderColor}33, inset 0 1px 0 rgba(255,255,255,0.05)`,
+        }}
+      >
+        {/* Header */}
+        <div className="px-4 py-3 border-b" style={{ borderColor, background: 'rgba(0,0,0,0.4)' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{TYPE_ICONS[card.type]}</span>
+            <div>
+              <p className="text-white font-bold" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', lineHeight: '1.4' }}>
+                {card.name}
+              </p>
+              <p className="text-[8px] mt-1" style={{ color: card.rarity?.color }}>{card.rarity?.label}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-4 py-5">
+          <p className="text-center mb-5" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: '#e2d1a3', lineHeight: '1.6' }}>
+            Quante copie vuoi schierare?
+          </p>
+
+          {/* Slider control */}
+          <div className="flex items-center justify-center gap-3 mb-5">
+            <button
+              onClick={() => handleChange(qty - 1)}
+              disabled={qty <= 1}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-lg font-bold transition disabled:opacity-30"
+              style={{
+                background: '#0a0a0f',
+                border: '2px solid #5a5a7a',
+                borderTopColor: '#8a8a9a',
+                borderLeftColor: '#8a8a9a',
+                borderRightColor: '#2a2a3a',
+                borderBottomColor: '#2a2a3a',
+                color: '#e2d1a3',
+                fontFamily: "'Press Start 2P', monospace",
+              }}
+            >
+              −
+            </button>
+
+            {/* Quantity display blocks */}
+            <div className="flex gap-1">
+              {Array.from({ length: maxQty }, (_, i) => (
+                <div
+                  key={i}
+                  className="w-7 h-7 rounded flex items-center justify-center transition-all duration-150"
+                  style={{
+                    background: i < qty
+                      ? `linear-gradient(135deg, ${borderColor}, ${borderColor}cc)`
+                      : '#1a1a2a',
+                    border: `2px solid ${i < qty ? borderColor : '#2a2a3a'}`,
+                    boxShadow: i < qty ? `0 0 8px ${borderColor}44` : 'none',
+                  }}
+                >
+                  <span style={{
+                    fontFamily: "'Press Start 2P', monospace",
+                    fontSize: '8px',
+                    color: i < qty ? '#0a0a0f' : '#3a3a4a',
+                    fontWeight: 'bold',
+                  }}>
+                    {i + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => handleChange(qty + 1)}
+              disabled={qty >= maxQty}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-lg font-bold transition disabled:opacity-30"
+              style={{
+                background: '#0a0a0f',
+                border: '2px solid #5a5a7a',
+                borderTopColor: '#8a8a9a',
+                borderLeftColor: '#8a8a9a',
+                borderRightColor: '#2a2a3a',
+                borderBottomColor: '#2a2a3a',
+                color: '#e2d1a3',
+                fontFamily: "'Press Start 2P', monospace",
+              }}
+            >
+              +
+            </button>
+          </div>
+
+          {/* Confirm */}
+          <button
+            onClick={() => { playMedievalSound('armor'); onConfirm(qty); }}
+            className="w-full py-2.5 rounded-xl font-bold tracking-wider transition hover:brightness-110"
+            style={{
+              background: `linear-gradient(135deg, ${borderColor}, ${borderColor}cc)`,
+              color: '#0a0a0f',
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '9px',
+              border: '2px solid transparent',
+              borderTopColor: `${borderColor}`,
+              borderLeftColor: `${borderColor}`,
+              borderRightColor: `${borderColor}88`,
+              borderBottomColor: `${borderColor}88`,
+              boxShadow: `0 4px 0 #000, 0 0 15px ${borderColor}33`,
+            }}
+          >
+            ✦ SCHIERA ×{qty}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ═══════════ Main DeckBuilder ═══════════ */
 export default function DeckBuilder() {
   const { user } = useAuth();
-  const [owned, setOwned] = useState({});       // catalogId → quantity owned
-  const [inUse, setInUse] = useState({});       // catalogId → quantity used in OTHER decks
-  const [knights, setKnights] = useState([]);    // array of catalogIds
-  const [deckCards, setDeckCards] = useState([]); // array of catalogIds (equipment)
+  const navigate = useNavigate();
+  const [owned, setOwned] = useState({});
+  const [inUse, setInUse] = useState({});
+  const [knights, setKnights] = useState([]);
+  const [deckCards, setDeckCards] = useState([]);
   const [deckName, setDeckName] = useState('');
-  const [deckId, setDeckId] = useState(null);    // editing existing deck
+  const [deckId, setDeckId] = useState(null);
   const [savedDecks, setSavedDecks] = useState([]);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('Tutti');
   const [search, setSearch] = useState('');
+  const [qtyPopup, setQtyPopup] = useState(null);
 
-  // Load collection & saved decks
   useEffect(() => {
     if (!user) return;
     getCollectionMap(user.id).then(setOwned);
@@ -41,8 +191,6 @@ export default function DeckBuilder() {
     getCardsInUse(user.id).then(setInUse);
   }, [user]);
 
-  // Available = Owned - InUse (in other decks)
-  // When building current deck, subtract current deck usage too
   const getAvailable = useCallback((catalogId) => {
     const totalOwned = owned[catalogId] ?? 0;
     const usedElsewhere = inUse[catalogId] ?? 0;
@@ -61,7 +209,7 @@ export default function DeckBuilder() {
     });
   }, [allEquipment, filter, search]);
 
-  // Counters
+  const deckTotal = useMemo(() => knights.length + deckCards.length, [knights, deckCards]);
   const deckByType = useMemo(() => {
     const grouped = { weapon: 0, shield: 0, item: 0, terrain: 0 };
     deckCards.forEach(id => {
@@ -71,24 +219,72 @@ export default function DeckBuilder() {
     return grouped;
   }, [deckCards]);
 
-  function addKnight(catalogId) {
-    if (knights.length >= MIN_KNIGHTS) return;
-    if (knights.includes(catalogId)) return;
-    if (getAvailable(catalogId) <= 0) return;
-    playMedievalSound('click');
-    setKnights(prev => [...prev, catalogId]);
+  const deckReady = knights.length === MIN_KNIGHTS && deckCards.length === MAX_DECK;
+
+  /* ── Knight click: toggle or add with popup ── */
+  function handleKnightClick(card) {
+    const inDeck = knights.filter(id => id === card.catalogId).length;
+    const totalOwned = owned[card.catalogId] ?? 0;
+    const available = getAvailable(card.catalogId);
+
+    if (inDeck > 0) {
+      playMedievalSound('click');
+      const idx = knights.indexOf(card.catalogId);
+      setKnights(prev => prev.filter((_, i) => i !== idx));
+      return;
+    }
+
+    if (knights.length >= MIN_KNIGHTS || totalOwned <= 0 || available <= 0) return;
+
+    const maxAdd = Math.min(available, MIN_KNIGHTS - knights.length, MAX_COPIES);
+
+    if (maxAdd <= 1) {
+      playMedievalSound('click');
+      setKnights(prev => [...prev, card.catalogId]);
+    } else {
+      setQtyPopup({ card, maxQty: maxAdd, isKnight: true });
+    }
   }
 
-  function removeKnight(catalogId) {
-    playMedievalSound('click');
-    setKnights(prev => prev.filter(id => id !== catalogId));
+  /* ── Equipment click: toggle or add with popup ── */
+  function handleEquipmentClick(card) {
+    const inDeck = deckCards.filter(id => id === card.catalogId).length;
+    const totalOwned = owned[card.catalogId] ?? 0;
+    const available = getAvailable(card.catalogId);
+
+    if (inDeck > 0) {
+      playMedievalSound('click');
+      const idx = deckCards.indexOf(card.catalogId);
+      setDeckCards(prev => prev.filter((_, i) => i !== idx));
+      return;
+    }
+
+    if (deckCards.length >= MAX_DECK || totalOwned <= 0 || available <= 0) return;
+
+    const maxAdd = Math.min(available, MAX_DECK - deckCards.length, MAX_COPIES);
+
+    if (maxAdd <= 1) {
+      playMedievalSound('click');
+      setDeckCards(prev => [...prev, card.catalogId]);
+    } else {
+      setQtyPopup({ card, maxQty: maxAdd, isKnight: false });
+    }
   }
 
-  function addEquipment(catalogId) {
-    if (deckCards.length >= MAX_DECK) return;
-    if (getAvailable(catalogId) <= 0) return;
+  function handleQtyConfirm(qty) {
+    const { card, isKnight } = qtyPopup;
+    const copies = Array(qty).fill(card.catalogId);
+    if (isKnight) {
+      setKnights(prev => [...prev, ...copies]);
+    } else {
+      setDeckCards(prev => [...prev, ...copies]);
+    }
+    setQtyPopup(null);
+  }
+
+  function removeKnight(index) {
     playMedievalSound('click');
-    setDeckCards(prev => [...prev, catalogId]);
+    setKnights(prev => prev.filter((_, i) => i !== index));
   }
 
   function removeEquipment(index) {
@@ -96,39 +292,53 @@ export default function DeckBuilder() {
     setDeckCards(prev => prev.filter((_, i) => i !== index));
   }
 
-  // Randomizer
+  /* ── Smart Random Deck Generator ── */
   function randomizeDeck() {
     playMedievalSound('parchment');
     const tempKnights = [];
     const tempDeck = [];
     const tempUsage = {};
 
-    // Pick 5 random owned knights
-    const ownedKnights = allKnights.filter(k => (owned[k.catalogId] ?? 0) > 0);
-    const shuffledK = [...ownedKnights].sort(() => Math.random() - 0.5);
-    for (const k of shuffledK) {
+    const knightPool = [];
+    for (const k of allKnights) {
+      const avail = (owned[k.catalogId] ?? 0) - (inUse[k.catalogId] ?? 0);
+      for (let i = 0; i < Math.min(avail, MAX_COPIES); i++) {
+        knightPool.push(k.catalogId);
+      }
+    }
+    for (let i = knightPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [knightPool[i], knightPool[j]] = [knightPool[j], knightPool[i]];
+    }
+    for (const cid of knightPool) {
       if (tempKnights.length >= MIN_KNIGHTS) break;
-      const avail = (owned[k.catalogId] ?? 0) - (inUse[k.catalogId] ?? 0) - (tempUsage[k.catalogId] ?? 0);
+      const used = tempUsage[cid] ?? 0;
+      const avail = (owned[cid] ?? 0) - (inUse[cid] ?? 0) - used;
       if (avail > 0) {
-        tempKnights.push(k.catalogId);
-        tempUsage[k.catalogId] = (tempUsage[k.catalogId] ?? 0) + 1;
+        tempKnights.push(cid);
+        tempUsage[cid] = used + 1;
       }
     }
 
-    // Fill 45 equipment from owned
-    const ownedEquip = allEquipment.filter(e => (owned[e.catalogId] ?? 0) > 0);
-    const shuffledE = [...ownedEquip].sort(() => Math.random() - 0.5);
-    let tries = 0;
-    while (tempDeck.length < MAX_DECK && tries < 500) {
-      const card = shuffledE[tries % shuffledE.length];
-      if (card) {
-        const avail = (owned[card.catalogId] ?? 0) - (inUse[card.catalogId] ?? 0) - (tempUsage[card.catalogId] ?? 0);
-        if (avail > 0) {
-          tempDeck.push(card.catalogId);
-          tempUsage[card.catalogId] = (tempUsage[card.catalogId] ?? 0) + 1;
-        }
+    const equipPool = [];
+    for (const e of allEquipment) {
+      const avail = (owned[e.catalogId] ?? 0) - (inUse[e.catalogId] ?? 0);
+      for (let i = 0; i < Math.min(avail, MAX_COPIES); i++) {
+        equipPool.push(e.catalogId);
       }
-      tries++;
+    }
+    for (let i = equipPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [equipPool[i], equipPool[j]] = [equipPool[j], equipPool[i]];
+    }
+    for (const cid of equipPool) {
+      if (tempDeck.length >= MAX_DECK) break;
+      const used = tempUsage[cid] ?? 0;
+      const avail = (owned[cid] ?? 0) - (inUse[cid] ?? 0) - used;
+      if (avail > 0) {
+        tempDeck.push(cid);
+        tempUsage[cid] = used + 1;
+      }
     }
 
     setKnights(tempKnights);
@@ -136,7 +346,6 @@ export default function DeckBuilder() {
     playMedievalSound('armor');
   }
 
-  // Save loadout
   async function handleSave() {
     if (!user) return;
     setSaving(true);
@@ -151,7 +360,6 @@ export default function DeckBuilder() {
       if (result) {
         setDeckId(result.id);
         playMedievalSound('save');
-        // Refresh
         getUserDecks(user.id).then(setSavedDecks);
         getCardsInUse(user.id).then(setInUse);
       }
@@ -170,6 +378,8 @@ export default function DeckBuilder() {
     setKnights(deck.knights ?? []);
     setDeckCards(deck.cards ?? []);
   }
+
+  const hasValidDeck = savedDecks.some(d => (d.knights?.length ?? 0) === MIN_KNIGHTS && (d.cards?.length ?? 0) === MAX_DECK);
 
   return (
     <div className="min-h-screen bg-fantasy-darker">
@@ -194,7 +404,7 @@ export default function DeckBuilder() {
               {/* ── Section 1: Knights ─────────────── */}
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                 <div className="flex items-baseline gap-3 mb-4">
-                  <h2 className="font-display font-bold text-lg text-white">⚔️ Selezione Cavalieri</h2>
+                  <h2 className="font-display font-bold text-lg text-white">⚔️ Seleziona Cavalieri</h2>
                   <span className={`text-xs font-bold ${knights.length >= MIN_KNIGHTS ? 'text-fantasy-gold' : 'text-fantasy-silver'}`}>
                     {knights.length}/{MIN_KNIGHTS}
                   </span>
@@ -203,22 +413,23 @@ export default function DeckBuilder() {
                   {allKnights.map(card => {
                     const totalOwned = owned[card.catalogId] ?? 0;
                     const available = getAvailable(card.catalogId);
-                    const selected = knights.includes(card.catalogId);
-                    const disabled = !selected && (knights.length >= MIN_KNIGHTS || available <= 0 || totalOwned <= 0);
-                    const borderColor = selected ? '#c9a84c' : RARITY_BORDER[card.rarity?.id ?? 'comune'];
+                    const inDeck = knights.filter(id => id === card.catalogId).length;
+                    const canAdd = totalOwned > 0 && available > 0 && knights.length < MIN_KNIGHTS;
+                    const disabled = totalOwned <= 0 || (!canAdd && inDeck === 0);
+                    const borderColor = inDeck > 0 ? '#c9a84c' : RARITY_BORDER[card.rarity?.id ?? 'comune'];
 
                     return (
                       <button
                         key={card.catalogId}
-                        onClick={() => selected ? removeKnight(card.catalogId) : addKnight(card.catalogId)}
+                        onClick={() => handleKnightClick(card)}
                         disabled={disabled}
                         className="relative rounded-xl overflow-hidden text-left transition-all duration-200"
                         style={{
                           background: disabled ? '#0a0a0f' : '#12121a',
                           border: `2px solid ${disabled ? '#1a1a2a' : borderColor}`,
                           opacity: disabled ? 0.35 : 1,
-                          transform: selected ? 'translateY(-3px)' : 'none',
-                          boxShadow: selected ? `0 0 15px ${borderColor}55` : 'none',
+                          transform: inDeck > 0 ? 'translateY(-3px)' : 'none',
+                          boxShadow: inDeck > 0 ? `0 0 15px ${borderColor}55` : 'none',
                           cursor: disabled ? 'not-allowed' : 'pointer',
                         }}
                       >
@@ -232,7 +443,6 @@ export default function DeckBuilder() {
                             ATK:{card.baseAtk} DEF:{card.baseDef} PA:{card.basePa}
                           </div>
                         </div>
-                        {/* Quantity badge */}
                         <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
                           style={{
                             background: totalOwned > 0 ? 'rgba(201,168,76,0.2)' : 'rgba(255,50,50,0.2)',
@@ -241,9 +451,9 @@ export default function DeckBuilder() {
                         >
                           x{totalOwned}
                         </div>
-                        {selected && (
-                          <div className="absolute top-1 left-1 w-4 h-4 rounded-full bg-fantasy-gold flex items-center justify-center text-[8px] text-black font-bold">
-                            ✓
+                        {inDeck > 0 && (
+                          <div className="absolute top-1 left-1 w-5 h-5 rounded-full bg-fantasy-gold text-[9px] text-black font-bold flex items-center justify-center">
+                            {inDeck}
                           </div>
                         )}
                       </button>
@@ -252,16 +462,15 @@ export default function DeckBuilder() {
                 </div>
               </div>
 
-              {/* ── Section 2: Equipment Deck ─────── */}
+              {/* ── Sezione 2: Equipaggiamento Mazzo ─────── */}
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                 <div className="flex items-baseline gap-3 mb-4">
-                  <h2 className="font-display font-bold text-lg text-white">🛡️ Composizione Mazzo</h2>
+                  <h2 className="font-display font-bold text-lg text-white">🛡️ Personalizza Mazzo</h2>
                   <span className={`text-xs font-bold ${deckCards.length >= MAX_DECK ? 'text-fantasy-gold' : 'text-fantasy-silver'}`}>
                     {deckCards.length}/{MAX_DECK}
                   </span>
                 </div>
 
-                {/* Filters */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-4">
                   <input
                     type="text"
@@ -290,19 +499,19 @@ export default function DeckBuilder() {
                   </div>
                 </div>
 
-                {/* Equipment grid */}
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[45vh] overflow-y-auto pr-1">
                   {filteredEquipment.map(card => {
                     const totalOwned = owned[card.catalogId] ?? 0;
                     const available = getAvailable(card.catalogId);
                     const inDeck = deckCards.filter(id => id === card.catalogId).length;
-                    const disabled = available <= 0 || totalOwned <= 0 || deckCards.length >= MAX_DECK;
+                    const canAdd = totalOwned > 0 && available > 0 && deckCards.length < MAX_DECK;
+                    const disabled = totalOwned <= 0 || (!canAdd && inDeck === 0);
                     const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
 
                     return (
                       <button
                         key={card.catalogId}
-                        onClick={() => addEquipment(card.catalogId)}
+                        onClick={() => handleEquipmentClick(card)}
                         disabled={disabled}
                         className="relative rounded-xl overflow-hidden text-left transition-all duration-200"
                         style={{
@@ -324,7 +533,6 @@ export default function DeckBuilder() {
                             {(card.type === 'item' || card.type === 'terrain') && card.desc}
                           </div>
                         </div>
-                        {/* Quantity: owned / available */}
                         <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
                           style={{
                             background: available > 0 ? 'rgba(201,168,76,0.2)' : 'rgba(255,50,50,0.2)',
@@ -347,11 +555,9 @@ export default function DeckBuilder() {
 
             {/* ═══ Right: Current Deck Summary ═══════ */}
             <div className="space-y-4">
-              {/* Deck info & save */}
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                 <h2 className="font-display font-semibold text-white text-lg mb-3">Il tuo Mazzo</h2>
 
-                {/* Deck name */}
                 <input
                   type="text"
                   value={deckName}
@@ -360,9 +566,10 @@ export default function DeckBuilder() {
                   className="w-full px-3 py-2 mb-3 bg-fantasy-darker border border-fantasy-border rounded-lg text-white text-sm placeholder:text-fantasy-silver/50 focus:outline-none focus:border-fantasy-gold transition"
                 />
 
-                {/* Summary counts */}
                 <div className="flex flex-wrap gap-2 mb-3 text-[10px]">
-                  <span className="px-2 py-1 bg-fantasy-darker rounded text-fantasy-silver">⚔️ {knights.length} cavalieri</span>
+                  <span className={`px-2 py-1 bg-fantasy-darker rounded ${knights.length === MIN_KNIGHTS ? 'text-fantasy-gold' : 'text-fantasy-silver'}`}>
+                    ⚔️ {knights.length}/{MIN_KNIGHTS} cavalieri
+                  </span>
                   {Object.entries(deckByType).map(([type, count]) => (
                     <span key={type} className="px-2 py-1 bg-fantasy-darker rounded text-fantasy-silver">
                       {TYPE_ICONS[type]} {count}
@@ -370,22 +577,24 @@ export default function DeckBuilder() {
                   ))}
                 </div>
 
-                <div className="text-xs text-fantasy-silver mb-4">
+                <div className="text-xs text-fantasy-silver mb-1">
                   Equipaggiamento: <strong className={deckCards.length >= MAX_DECK ? 'text-fantasy-gold' : 'text-white'}>{deckCards.length}/{MAX_DECK}</strong>
                 </div>
+                <div className={`text-xs mb-4 font-bold ${deckReady ? 'text-green-400' : 'text-fantasy-silver/60'}`}>
+                  Totale: {deckTotal}/50 {deckReady ? '✓ Pronto!' : ''}
+                </div>
 
-                {/* Knights list */}
                 {knights.length > 0 && (
                   <div className="mb-3">
                     <p className="text-[10px] text-fantasy-gold font-display mb-1">Cavalieri selezionati:</p>
                     <div className="space-y-1">
-                      {knights.map(id => {
+                      {knights.map((id, i) => {
                         const card = CARD_CATALOG.find(c => c.catalogId === id);
                         return (
-                          <div key={id} className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded group">
+                          <div key={`k-${i}`} className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded group">
                             <span className="text-xs">⚔️</span>
                             <span className="flex-1 text-white text-[11px] truncate">{card?.name}</span>
-                            <button onClick={() => removeKnight(id)} className="text-fantasy-red/50 hover:text-fantasy-red text-[10px] opacity-0 group-hover:opacity-100 transition">✕</button>
+                            <button onClick={() => removeKnight(i)} className="text-fantasy-red/50 hover:text-fantasy-red text-[10px] opacity-0 group-hover:opacity-100 transition">✕</button>
                           </div>
                         );
                       })}
@@ -393,7 +602,6 @@ export default function DeckBuilder() {
                   </div>
                 )}
 
-                {/* Equipment list */}
                 <div className="max-h-[30vh] overflow-y-auto space-y-1 pr-1">
                   {deckCards.length === 0 && (
                     <p className="text-fantasy-silver/40 text-xs text-center py-4">
@@ -404,7 +612,7 @@ export default function DeckBuilder() {
                     const card = CARD_CATALOG.find(c => c.catalogId === id);
                     if (!card) return null;
                     return (
-                      <div key={`${id}-${i}`} className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded group">
+                      <div key={`e-${i}`} className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded group">
                         <span className="text-xs">{TYPE_ICONS[card.type]}</span>
                         <span className="flex-1 text-white text-[11px] truncate">{card.name}</span>
                         <span className="text-[9px]" style={{ color: card.rarity?.color }}>{card.rarity?.label}</span>
@@ -414,7 +622,6 @@ export default function DeckBuilder() {
                   })}
                 </div>
 
-                {/* Actions */}
                 <div className="mt-4 space-y-2">
                   <button
                     onClick={handleSave}
@@ -425,7 +632,27 @@ export default function DeckBuilder() {
                       color: '#0a0a0f',
                     }}
                   >
-                    {saving ? 'Salvataggio…' : '💾 Salva Loadout'}
+                    {saving ? 'Salvataggio…' : '💾 SALVA DECK'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const deck = savedDecks.find(d => (d.knights?.length ?? 0) === MIN_KNIGHTS && (d.cards?.length ?? 0) === MAX_DECK);
+                      if (!deck) {
+                        playMedievalSound('error');
+                        return;
+                      }
+                      playMedievalSound('armor');
+                      navigate('/play', { state: { deckId: deck.id, knights: deck.knights, cards: deck.cards } });
+                    }}
+                    disabled={!hasValidDeck}
+                    className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wider transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      background: hasValidDeck ? 'linear-gradient(135deg, #a83232, #ff4444)' : '#333',
+                      color: '#fff',
+                      boxShadow: hasValidDeck ? '0 0 25px rgba(168,50,50,0.4)' : 'none',
+                    }}
+                  >
+                    ⚔️ INIZIA PARTITA
                   </button>
                   {(knights.length > 0 || deckCards.length > 0) && (
                     <button
@@ -438,7 +665,6 @@ export default function DeckBuilder() {
                 </div>
               </div>
 
-              {/* ── Saved Decks ──────────────────────── */}
               {savedDecks.length > 0 && (
                 <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                   <h3 className="font-display font-semibold text-white text-sm mb-3">Mazzi Salvati</h3>
@@ -464,6 +690,17 @@ export default function DeckBuilder() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {qtyPopup && (
+          <QuantityPopup
+            card={qtyPopup.card}
+            maxQty={qtyPopup.maxQty}
+            onConfirm={handleQtyConfirm}
+            onClose={() => setQtyPopup(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

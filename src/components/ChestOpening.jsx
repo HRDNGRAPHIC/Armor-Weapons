@@ -1,7 +1,7 @@
 /*
  * ChestOpening.jsx — Cinematic Starter Chest opening animation.
- * Medieval chest that shakes, opens with heavy particle effects,
- * metallic sounds, and flying cards.
+ * Uses baule_chiuso.png / baule_aperto.png with shaking, particles,
+ * light beams, metallic sounds, and flying cards.
  */
 import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,8 @@ import { CARD_CATALOG } from '../game/data/cardCatalog';
 import { playMedievalSound } from '../game/data/medievalAudio';
 import { claimStarterChest } from '../services/starterChest';
 import { useAuth } from '../context/AuthContext';
+import bauleChiuso from '../assets/baule_chiuso.png';
+import bauleAperto from '../assets/baule_aperto.png';
 
 const TYPE_ICONS = {
   knight: '⚔️', weapon: '🗡️', shield: '🛡️', item: '🧪', terrain: '🌍',
@@ -24,16 +26,16 @@ const RARITY_COLORS = {
 /* ── Heavy Particles ──────────────────────────────── */
 function ChestParticles({ active }) {
   const particles = useRef(
-    Array.from({ length: 60 }, (_, i) => ({
+    Array.from({ length: 80 }, (_, i) => ({
       id: i,
       x: 50 + (Math.random() - 0.5) * 30,
       y: 50 + (Math.random() - 0.5) * 20,
-      size: Math.random() * 6 + 3,
+      size: Math.random() * 8 + 3,
       delay: Math.random() * 0.8,
       dur: Math.random() * 2 + 1.5,
-      dx: (Math.random() - 0.5) * 500,
-      dy: -(Math.random() * 400 + 100),
-      color: ['#c9a84c', '#ffd700', '#ff6b35', '#e8e8e8', '#a855f7'][Math.floor(Math.random() * 5)],
+      dx: (Math.random() - 0.5) * 600,
+      dy: -(Math.random() * 500 + 100),
+      color: ['#c9a84c', '#ffd700', '#ff6b35', '#e8e8e8', '#a855f7', '#ff4444'][Math.floor(Math.random() * 6)],
     }))
   ).current;
 
@@ -49,14 +51,14 @@ function ChestParticles({ active }) {
             left: `${p.x}%`, top: `${p.y}%`,
             width: p.size, height: p.size,
             backgroundColor: p.color,
-            boxShadow: `0 0 ${p.size * 3}px ${p.color}`,
+            boxShadow: `0 0 ${p.size * 4}px ${p.color}`,
           }}
           initial={{ opacity: 0, scale: 0 }}
           animate={{
             x: [0, p.dx],
             y: [0, p.dy],
             opacity: [0, 1, 1, 0],
-            scale: [0, 2, 1.5, 0],
+            scale: [0, 2.5, 1.5, 0],
           }}
           transition={{
             duration: p.dur,
@@ -69,14 +71,44 @@ function ChestParticles({ active }) {
   );
 }
 
+/* ── Light Beams ──────────────────────────────────── */
+function LightBeams({ active }) {
+  if (!active) return null;
+  const beams = Array.from({ length: 12 }, (_, i) => ({
+    id: i,
+    rotation: (i / 12) * 360,
+    delay: i * 0.05,
+  }));
+  return (
+    <div className="absolute inset-0 pointer-events-none z-15 flex items-center justify-center">
+      {beams.map(b => (
+        <motion.div
+          key={b.id}
+          className="absolute"
+          style={{
+            width: 4,
+            height: '80%',
+            background: 'linear-gradient(to top, rgba(255,215,0,0.6), transparent)',
+            transformOrigin: 'center bottom',
+            rotate: b.rotation,
+          }}
+          initial={{ opacity: 0, scaleY: 0 }}
+          animate={{ opacity: [0, 0.8, 0], scaleY: [0, 1, 0.5] }}
+          transition={{ duration: 2, delay: b.delay, ease: 'easeOut' }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ── Flying Card ──────────────────────────────────── */
 function FlyingCard({ card, index, total }) {
   const rarityId = card.rarity?.id ?? 'comune';
   const colors = RARITY_COLORS[rarityId];
   const angle = ((index / total) * 360 - 90) * (Math.PI / 180);
-  const radius = 120;
+  const radius = 130;
   const targetX = Math.cos(angle) * radius;
-  const targetY = Math.sin(angle) * radius;
+  const targetY = Math.sin(angle) * radius - 30;
 
   return (
     <motion.div
@@ -89,7 +121,7 @@ function FlyingCard({ card, index, total }) {
         left: '50%', top: '50%',
         marginLeft: -40, marginTop: -55,
       }}
-      initial={{ x: 0, y: 0, scale: 0, opacity: 0, rotateY: 180 }}
+      initial={{ x: 0, y: 40, scale: 0, opacity: 0, rotateY: 180 }}
       animate={{
         x: targetX,
         y: targetY,
@@ -122,43 +154,48 @@ function FlyingCard({ card, index, total }) {
 export default function ChestOpening({ onClose, onCardsAdded }) {
   const { user } = useAuth();
   const [phase, setPhase] = useState('sealed');    // sealed → shaking → opening → reveal → done
-  const [starterCards, setStarterCards] = useState([]); // array of { catalogId, quantity }
-  const [displayCards, setDisplayCards] = useState([]); // 9-10 representative cards to show
+  const [starterCards, setStarterCards] = useState([]);
+  const [displayCards, setDisplayCards] = useState([]);
   const [claiming, setClaiming] = useState(false);
 
   const handleOpenChest = useCallback(async () => {
     if (claiming || !user) return;
     setClaiming(true);
+
+    // Phase: shaking — metallic rattling
     playMedievalSound('metal');
-
-    // Phase: shaking
     setPhase('shaking');
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 800));
+    playMedievalSound('armor');
+    await new Promise(r => setTimeout(r, 1200));
 
+    // Phase: opening burst — heavy seal break
     playMedievalSound('packOpen');
-
-    // Phase: opening (burst)
     setPhase('opening');
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1800));
 
     // Claim the chest from Supabase
     const cards = await claimStarterChest(user.id);
     setStarterCards(cards);
 
-    // Pick 9-10 representative cards to display
+    // Pick 5-6 representative cards (prioritize higher rarity)
     const catalogIds = cards.map(c => c.catalogId);
     const unique = [...new Set(catalogIds)];
     const display = unique
-      .slice(0, 10)
       .map(id => CARD_CATALOG.find(c => c.catalogId === id))
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort((a, b) => {
+        const order = { leggendaria: 0, epica: 1, rara: 2, comune: 3 };
+        return (order[a.rarity?.id] ?? 3) - (order[b.rarity?.id] ?? 3);
+      })
+      .slice(0, 6);
     setDisplayCards(display);
 
     playMedievalSound('armor');
 
-    // Phase: reveal (flying cards)
+    // Phase: reveal — flying cards from chest mouth
     setPhase('reveal');
-    await new Promise(r => setTimeout(r, display.length * 150 + 1500));
+    await new Promise(r => setTimeout(r, display.length * 150 + 2000));
 
     playMedievalSound('legendary');
     setPhase('done');
@@ -182,12 +219,13 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
 
-      {/* Particle effects during opening */}
+      {/* Particle effects during opening & reveal */}
       <ChestParticles active={phase === 'opening' || phase === 'reveal'} />
+      <LightBeams active={phase === 'opening'} />
 
       {/* Content */}
       <div className="relative z-30 flex flex-col items-center">
-        {/* ═══ SEALED CHEST ═══ */}
+        {/* ═══ SEALED CHEST — Real asset ═══ */}
         {phase === 'sealed' && (
           <motion.div
             className="flex flex-col items-center cursor-pointer"
@@ -195,34 +233,13 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <motion.div
-              className="w-48 h-40 rounded-2xl flex items-center justify-center relative overflow-hidden"
-              style={{
-                background: 'linear-gradient(145deg, #3a2810, #5a3a18, #3a2810)',
-                border: '4px solid #8B6914',
-                boxShadow: '0 0 60px rgba(139,105,20,0.4), inset 0 0 30px rgba(0,0,0,0.5)',
-              }}
-              animate={{
-                y: [0, -8, 0],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-            >
-              {/* Lock */}
-              <div className="text-6xl">🔒</div>
-              {/* Metal bands */}
-              <div className="absolute top-3 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-amber-700 to-transparent opacity-60" />
-              <div className="absolute bottom-3 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-amber-700 to-transparent opacity-60" />
-              {/* Corner rivets */}
-              <div className="absolute top-2 left-2 w-3 h-3 rounded-full bg-amber-600 border border-amber-800" />
-              <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-amber-600 border border-amber-800" />
-              <div className="absolute bottom-2 left-2 w-3 h-3 rounded-full bg-amber-600 border border-amber-800" />
-              <div className="absolute bottom-2 right-2 w-3 h-3 rounded-full bg-amber-600 border border-amber-800" />
-            </motion.div>
-
+            <motion.img
+              src={bauleChiuso}
+              alt="Forziere chiuso"
+              className="w-56 h-auto drop-shadow-[0_0_40px_rgba(139,105,20,0.5)]"
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
             <motion.p
               className="mt-6 text-fantasy-gold font-display font-bold text-lg"
               animate={{ opacity: [0.5, 1, 0.5] }}
@@ -234,69 +251,77 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
           </motion.div>
         )}
 
-        {/* ═══ SHAKING CHEST ═══ */}
+        {/* ═══ SHAKING CHEST — Violent rattling ═══ */}
         {phase === 'shaking' && (
-          <motion.div
-            className="w-48 h-40 rounded-2xl flex items-center justify-center relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(145deg, #3a2810, #5a3a18, #3a2810)',
-              border: '4px solid #8B6914',
-              boxShadow: '0 0 80px rgba(201,168,76,0.6), inset 0 0 30px rgba(0,0,0,0.5)',
-            }}
-            animate={{
-              rotateY: [0, 10, -10, 15, -15, 20, -20, 360],
-              scale: [1, 1.05, 1, 1.1, 1, 1.15, 1, 1.2],
-              x: [0, -10, 10, -15, 15, -20, 20, 0],
-            }}
-            transition={{ duration: 2, ease: 'easeInOut' }}
-          >
-            <motion.div
-              className="text-6xl"
-              animate={{ rotate: [0, -20, 20, -30, 30, 0] }}
-              transition={{ duration: 0.5, repeat: 3 }}
-            >
-              🔓
-            </motion.div>
-            <div className="absolute top-3 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
-            <div className="absolute bottom-3 left-0 right-0 h-2 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
-          </motion.div>
-        )}
-
-        {/* ═══ OPENING BURST ═══ */}
-        {phase === 'opening' && (
-          <motion.div
-            className="w-48 h-40 rounded-2xl flex items-center justify-center relative"
-            initial={{ scale: 1.2 }}
-            animate={{ scale: [1.2, 2, 0], opacity: [1, 1, 0] }}
-            transition={{ duration: 1.5, ease: 'easeIn' }}
-            style={{
-              background: 'linear-gradient(145deg, #5a3a18, #8B6914)',
-              border: '4px solid #ffd700',
-              boxShadow: '0 0 120px rgba(255,215,0,0.8)',
-            }}
-          >
-            <motion.div
-              className="absolute inset-0 rounded-2xl"
-              style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.8), transparent)' }}
-              animate={{ opacity: [0, 1, 0] }}
-              transition={{ duration: 1 }}
+          <motion.div className="flex flex-col items-center">
+            <motion.img
+              src={bauleChiuso}
+              alt="Forziere che trema"
+              className="w-56 h-auto"
+              style={{
+                filter: 'drop-shadow(0 0 60px rgba(201,168,76,0.7))',
+              }}
+              animate={{
+                x: [0, -12, 12, -16, 16, -20, 20, -8, 8, 0],
+                rotate: [0, -3, 3, -5, 5, -7, 7, -3, 3, 0],
+                scale: [1, 1.02, 1, 1.04, 1, 1.06, 1, 1.04, 1.02, 1.08],
+              }}
+              transition={{ duration: 2, ease: 'easeInOut' }}
             />
           </motion.div>
         )}
 
-        {/* ═══ REVEAL — Flying Cards ═══ */}
+        {/* ═══ OPENING — Asset transforms to open chest + burst ═══ */}
+        {phase === 'opening' && (
+          <motion.div className="flex flex-col items-center relative">
+            <motion.img
+              src={bauleAperto}
+              alt="Forziere aperto"
+              className="w-64 h-auto"
+              style={{
+                filter: 'drop-shadow(0 0 80px rgba(255,215,0,0.8))',
+              }}
+              initial={{ scale: 1.1, opacity: 0 }}
+              animate={{ scale: [1.1, 1.3, 1.15], opacity: [0, 1, 1] }}
+              transition={{ duration: 1.5, ease: 'easeOut' }}
+            />
+            {/* Golden radial glow */}
+            <motion.div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.4) 0%, transparent 70%)' }}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: [0, 1, 0.5], scale: [0.5, 2, 2.5] }}
+              transition={{ duration: 1.5 }}
+            />
+          </motion.div>
+        )}
+
+        {/* ═══ REVEAL — Open chest + flying cards from its mouth ═══ */}
         {phase === 'reveal' && (
-          <div className="relative w-80 h-80 flex items-center justify-center">
-            {displayCards.map((card, i) => (
-              <FlyingCard key={card.catalogId} card={card} index={i} total={displayCards.length} />
-            ))}
+          <div className="relative flex flex-col items-center">
+            {/* Open chest stays visible */}
+            <motion.img
+              src={bauleAperto}
+              alt="Forziere aperto"
+              className="w-56 h-auto relative z-10"
+              style={{ filter: 'drop-shadow(0 0 40px rgba(201,168,76,0.5))' }}
+              initial={{ scale: 1.15 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5 }}
+            />
+            {/* Cards fly out from chest */}
+            <div className="absolute w-80 h-80 flex items-center justify-center" style={{ top: '-80px' }}>
+              {displayCards.map((card, i) => (
+                <FlyingCard key={card.catalogId} card={card} index={i} total={displayCards.length} />
+              ))}
+            </div>
             <motion.p
-              className="absolute -bottom-16 text-fantasy-gold font-display font-bold text-sm text-center w-full"
+              className="mt-8 text-fantasy-gold font-display font-bold text-sm text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: displayCards.length * 0.15 + 0.5 }}
             >
-              +45 carte aggiunte!
+              +45 carte aggiunte alla collezione!
             </motion.p>
           </div>
         )}
@@ -310,6 +335,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
             transition={{ type: 'spring', stiffness: 200 }}
           >
             <div className="bg-fantasy-card border border-fantasy-gold/40 rounded-2xl p-6 text-center">
+              <img src={bauleAperto} alt="Forziere" className="w-24 h-auto mx-auto mb-4 opacity-60" />
               <h2 className="font-display font-bold text-2xl text-fantasy-gold mb-2">
                 Forziere Aperto!
               </h2>
@@ -318,7 +344,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
               </p>
 
               {/* Preview grid of the shown cards */}
-              <div className="grid grid-cols-5 gap-2 mb-6">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-6">
                 {displayCards.map(card => {
                   const colors = RARITY_COLORS[card.rarity?.id ?? 'comune'];
                   return (
