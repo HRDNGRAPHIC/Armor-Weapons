@@ -389,3 +389,221 @@ La colonna `quantity` su `user_collection` gestisce automaticamente i duplicati:
 2. Clicca su una carta nuova per ispezionarla → chiudi lo zoom → il pallino scompare
 3. Nel **Deck Builder**, se possiedi 3 copie di una carta, puoi aggiungerne fino a 3 nel mazzo
 4. Il tasto "INIZIA PARTITA" si attiva solo con **5 cavalieri + 45 carte equipaggiamento**
+
+---
+
+## 🔄 STEP 9 — Realtime Subscription + Limite Mazzi Salvati + Abilitazione Replica
+
+### 9.1 — Abilita Realtime sulla tabella `profiles`
+
+Per aggiornare il gold (e altri campi) in tempo reale nel frontend senza ricaricare la pagina,
+è necessario abilitare la **Replica** sulla tabella `profiles`.
+
+```sql
+-- ══════════════════════════════════════════════════════════
+-- ABILITA REALTIME SU PROFILES
+-- Necessario per il listener supabase.channel() nel frontend.
+-- ══════════════════════════════════════════════════════════
+
+-- Aggiungi la tabella profiles alla pubblicazione realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+```
+
+> **In alternativa** puoi farlo dalla UI:
+> 1. Vai su **Database → Replication**
+> 2. Sotto "Tables", attiva il toggle per `profiles`
+
+### 9.2 — Limite massimo mazzi salvati (5 per utente)
+
+Il frontend ora limita a 5 il numero di mazzi salvabili. Per sicurezza lato server,
+puoi aggiungere un check constraint o una funzione RPC:
+
+```sql
+-- ══════════════════════════════════════════════════════════
+-- FUNZIONE RPC: Verifica limite mazzi prima dell'insert
+-- Impedisce di superare 5 mazzi anche manipolando le API.
+-- ══════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.check_deck_limit()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  deck_count integer;
+BEGIN
+  SELECT COUNT(*) INTO deck_count
+  FROM public.user_decks
+  WHERE user_id = NEW.user_id;
+
+  IF deck_count >= 5 THEN
+    RAISE EXCEPTION 'Massimo 5 mazzi per utente raggiunto.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger: scatta solo sugli INSERT (non sugli UPDATE)
+DROP TRIGGER IF EXISTS check_user_deck_limit ON public.user_decks;
+CREATE TRIGGER check_user_deck_limit
+  BEFORE INSERT ON public.user_decks
+  FOR EACH ROW
+  EXECUTE FUNCTION public.check_deck_limit();
+```
+
+### 9.3 — Verifica
+
+1. Modifica il `gold` di un utente direttamente nel **Table Editor** di Supabase
+2. Nel frontend (Shop o Navbar), il valore gold si aggiorna **istantaneamente** senza refresh
+3. Prova a salvare più di 5 mazzi → il frontend blocca il salvataggio con un messaggio di errore
+4. Nel Deck Builder, il tasto destro su una carta nel mazzo rimuove 1 copia
+5. Il tasto sinistro su una carta con 1 copia disponibile la aggiunge immediatamente (no pop-up)
+6. Il tasto sinistro su una carta con più copie apre lo slider di selezione quantità
+7. Il tasto "Genera Mazzo Casuale" è disabilitato se le carte possedute sono insufficienti
+8. L'icona cestino 🗑️ accanto ai mazzi salvati elimina il mazzo dal database
+
+---
+
+## 📋 STEP 10 — Blueprint Decks + Unificazione Catalogo + Bridge Partita
+
+### 10.1 — Mazzi-Blueprint (Nessun Sequestro Carte)
+
+I mazzi salvati nella tabella `user_decks` ora funzionano come **blueprint** (ricette).
+Le carte NON vengono "bloccate" dal salvataggio — la stessa carta può comparire in più mazzi salvati.
+La formula di disponibilità nel Deck Builder è:
+
+```
+Disponibili = Possedute - In_Uso_nel_Draft_Attuale
+```
+
+Dove `In_Uso_nel_Draft_Attuale` = quante copie sono nel mazzo che l'utente sta costruendo **in quel momento**.
+I mazzi salvati in precedenza non riducono la disponibilità.
+
+> **Nessuna modifica SQL necessaria.** La logica di sequestro era solo nel frontend.
+
+### 10.2 — Catalogo Unificato con gameData.js
+
+Il file `cardCatalog.js` ora importa direttamente tutti gli array di `gameData.js`:
+- `knightNames`, `weaponNames`, `shieldNames` → nomi base
+- `itemDefs` → id, cu, desc per ogni oggetto
+- `terrainDefs` → id, desc per ogni terreno
+
+Le descrizioni e i costi di utilizzo (CU) delle carte Oggetto/Terreno nel catalogo
+vengono LETTI da `gameData.js` (sorgente unica di verità). Se modifichi un `itemDef` in
+`gameData.js`, il catalogo si aggiorna automaticamente.
+
+### 10.3 — Categorie Italiane
+
+Le etichette di tipo sono localizzate in italiano ed esportate da `cardCatalog.js`:
+
+```javascript
+import { TYPE_LABELS_IT } from './game/data/cardCatalog';
+// { knight: 'Cavalieri', weapon: 'Armi', shield: 'Scudi', item: 'Oggetti', terrain: 'Terreni' }
+```
+
+### 10.4 — Starter Chest: 50 Carte (Mazzo Legale)
+
+Il `generateStarterDeck()` in `cardLibrary.js` ora produce esattamente **50 carte**:
+- 5 Cavalieri (i 4 comuni + 1 duplicato)
+- 15 Armi (copie comuni distribuite)
+- 15 Scudi (copie comuni distribuite)
+- 10 Oggetti (1 di ogni oggetto base con `itemId` unico da `gameData`)
+- 5 Terreni (1 di ogni terreno base con `terrainId` unico da `gameData`)
+
+Questo garantisce che ogni nuovo giocatore possa immediatamente costruire un mazzo legale.
+
+### 10.5 — Bridge Deck Builder → Partita
+
+Il bottone **"INIZIA PARTITA"** nel Deck Builder usa il mazzo **attualmente caricato nell'editor**
+(non il primo mazzo salvato valido). Passa `{ knights, cards }` via `location.state` a `/play`.
+
+In `GameBoard.jsx`, `buildPlayerDeck()` converte ogni `catalogId` in un oggetto di gioco:
+- Tipo `weapon` → `arma`, `shield` → `scudo`, `item` → `oggetto`, `terrain` → `terreno`
+- Tutta l'arte viene forzata attraverso `getPixelSVG()` per rendering 8-bit pixelato
+- L'AI riceve sempre un mazzo generato casualmente
+
+### 10.6 — Verifica
+
+1. Salva 2 mazzi con carte in comune → entrambi si salvano senza errori
+2. Apri il Deck Builder e verifica che la disponibilità = possedute - solo draft attuale
+3. Il Forziere Starter regala esattamente 50 carte (5 cavalieri + 45 equipaggiamento)
+4. Costruisci un mazzo completo (50 carte) e clicca "INIZIA PARTITA"
+5. Verifica che la partita usa esattamente le carte scelte (nomi corretti nel GameBoard)
+6. Catene, Riflesso, ecc. funzionano correttamente perché gli `itemId`/`terrainId` matchano `gameData`
+
+---
+
+## 🗑️ STEP 11 — Eliminazione Account (Delete Account RPC)
+
+Il Profilo ora ha un bottone "Elimina Account" che chiama una funzione RPC sicura per cancellare
+l'utente da `auth.users`. Grazie ai constraint `ON DELETE CASCADE` sulle tabelle collegate,
+tutti i dati dell'utente (carte, mazzi, pacchetti, profilo) vengono eliminati automaticamente.
+
+### 11.1 — Crea la funzione RPC
+
+Apri una **nuova query** nell'SQL Editor e incolla:
+
+```sql
+-- ══════════════════════════════════════════════════════════
+-- FUNZIONE RPC: Elimina il proprio account da auth.users
+-- Il CASCADE si occupa di eliminare profiles, user_collection,
+-- user_decks, user_packs automaticamente.
+-- ══════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.delete_own_account()
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  DELETE FROM auth.users WHERE id = auth.uid();
+$$;
+```
+
+### 11.2 — Verifica CASCADE su `profiles`
+
+Se la tabella `profiles` non ha già un foreign key con CASCADE verso `auth.users`, aggiungilo:
+
+```sql
+-- Controlla se profiles.id ha un FK ON DELETE CASCADE:
+-- Se non ce l'ha, puoi aggiungere:
+ALTER TABLE public.profiles
+  DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_id_fkey
+  FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+```
+
+> **Nota**: Le tabelle `user_collection`, `user_decks` e `user_packs` hanno già
+> `ON DELETE CASCADE` dalla creazione iniziale (STEP 2).
+
+### 11.3 — Verifica
+
+1. Vai nel **Profilo** e clicca "Elimina Account"
+2. Appare un popup di conferma con stile Dark Fantasy
+3. Clicca "Elimina per sempre" → l'account viene cancellato
+4. L'utente viene reindirizzato alla pagina di login
+5. Tutti i dati (carte, mazzi, pacchetti) sono stati eliminati dal database
+
+---
+
+## ⚔️ STEP 12 — ELO PvE Statico + Modalità Gioco
+
+### 12.1 — Differenziazione ELO per Modalità
+
+Il sistema ELO ora distingue tra modalità PvE e PvP:
+
+- **PvE (Gioca contro il Computer)**: ELO statico +3 per vittoria, -5 per sconfitta/abbandono
+- **PvP (Gioca contro Giocatori)**: Formula Chess.com con K-factor 20 (non ancora attivo)
+
+La modalità viene passata al GameBoard tramite `location.state.mode` e registrata
+in `recordGameResult(userId, outcome, mode)`.
+
+### 12.2 — Verifica
+
+1. Dalla Lobby, clicca "Gioca contro il Computer"
+2. Vinci → ELO sale di +3
+3. Perdi → ELO scende di -5
+4. Il bottone "Gioca contro Giocatori" è disabilitato (coming soon)
+5. Il valore iniziale dell'ELO è 100 (non 1000)

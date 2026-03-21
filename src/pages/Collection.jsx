@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/layout/Navbar';
-import { CARD_CATALOG } from '../game/data/cardCatalog';
+import { CARD_CATALOG, TYPE_LABELS_IT, RARITIES } from '../game/data/cardCatalog';
 import { useAuth } from '../context/AuthContext';
 import { getCollectionMap, getNewCards, markCardSeen } from '../services/collection';
 import { playMedievalSound } from '../game/data/medievalAudio';
+import SmartFilter from '../components/SmartFilter';
 
 const TYPE_ICONS = {
   knight: '⚔️', weapon: '🗡️', shield: '🛡️', item: '🧪', terrain: '🌍',
@@ -15,15 +16,6 @@ const RARITY_BORDER = {
   epica: '#8b5fbf',
   rara: '#2a5da8',
   comune: '#5a5a7a',
-};
-
-const TYPE_LABELS = {
-  Tutti: 'Tutti',
-  knight: 'Cavalieri',
-  weapon: 'Armi',
-  shield: 'Scudi',
-  item: 'Oggetti',
-  terrain: 'Terreni',
 };
 
 const ZOOM_DURATION = 0.3;
@@ -141,7 +133,8 @@ export default function Collection() {
   const { user } = useAuth();
   const [owned, setOwned] = useState({});
   const [newCards, setNewCards] = useState(new Set());
-  const [filter, setFilter] = useState('Tutti');
+  const [selectedTypes, setSelectedTypes] = useState(new Set());
+  const [selectedRarities, setSelectedRarities] = useState(new Set());
   const [search, setSearch] = useState('');
   const [zoomedCard, setZoomedCard] = useState(null);
 
@@ -172,11 +165,12 @@ export default function Collection() {
 
   const filteredCards = useMemo(() => {
     return CARD_CATALOG.filter(c => {
-      if (filter !== 'Tutti' && c.type !== filter) return false;
+      if (selectedTypes.size > 0 && !selectedTypes.has(c.type)) return false;
+      if (selectedRarities.size > 0 && !selectedRarities.has(c.rarity?.id)) return false;
       if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [filter, search]);
+  }, [selectedTypes, selectedRarities, search]);
 
   const totalOwned = Object.values(owned).reduce((s, q) => s + q, 0);
   const uniqueOwned = Object.keys(owned).length;
@@ -212,27 +206,20 @@ export default function Collection() {
               placeholder="Cerca carta…"
               className="flex-1 px-3 py-2 bg-fantasy-card border border-fantasy-border rounded-lg text-white text-sm placeholder:text-fantasy-silver/50 focus:outline-none focus:border-fantasy-gold transition"
             />
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(TYPE_LABELS).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs border transition ${
-                    filter === key
-                      ? 'border-fantasy-gold bg-fantasy-gold/10 text-fantasy-gold'
-                      : 'border-fantasy-border text-fantasy-silver hover:text-white hover:border-fantasy-gold/40'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <SmartFilter
+              typeOptions={TYPE_LABELS_IT}
+              rarityOptions={RARITIES}
+              selectedTypes={selectedTypes}
+              selectedRarities={selectedRarities}
+              onChange={(types, rarities) => { setSelectedTypes(types); setSelectedRarities(rarities); }}
+            />
           </div>
 
-          {/* Card grid — plain cards, NO 3D tilt, NO badge in grid */}
+          {/* Card grid */}
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {filteredCards.map(card => {
               const qty = owned[card.catalogId] ?? 0;
+              const isNew = qty > 0 && newCards.has(card.catalogId);
               const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
               return (
                 <motion.div
@@ -268,6 +255,13 @@ export default function Collection() {
                   >
                     x{qty}
                   </div>
+                  {/* New card badge */}
+                  {isNew && (
+                    <span className="absolute top-1 left-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
+                    </span>
+                  )}
                 </motion.div>
               );
             })}

@@ -420,10 +420,11 @@ export default function GameBoard() {
             let outcome = 'draw';
             if (message.includes('GIOCATORE 1 TRIONFA')) outcome = 'win';
             else if (message.includes('GIOCATORE 2 TRIONFA')) outcome = 'loss';
-            await recordGameResult(user.id, outcome);
+            const mode = location.state?.mode ?? 'pve';
+            await recordGameResult(user.id, outcome, mode);
             refreshProfile();
         }
-    }, [$, user, refreshProfile, syncReactState]);
+    }, [$, user, refreshProfile, syncReactState, location.state]);
 
     // --- ABANDON GAME ---
     const abandonGame = useCallback(async () => {
@@ -435,11 +436,12 @@ export default function GameBoard() {
         const pauseMenu = $('pause-menu');
         if (pauseMenu) { pauseMenu.classList.add('hidden'); pauseMenu.classList.remove('flex'); }
         if (user) {
-            await recordGameResult(user.id, 'abandon');
+            const mode = location.state?.mode ?? 'pve';
+            await recordGameResult(user.id, 'abandon', mode);
             refreshProfile();
         }
         navigate('/lobby');
-    }, [$, user, refreshProfile, navigate, syncReactState]);
+    }, [$, user, refreshProfile, navigate, syncReactState, location.state]);
 
     const checkWinCondition = useCallback(() => {
         let state = stateRef.current;

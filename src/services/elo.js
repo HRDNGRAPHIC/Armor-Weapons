@@ -36,13 +36,18 @@ export function calculateNewElo(currentElo, opponentElo, result) {
   return Math.max(0, currentElo + delta);
 }
 
+// PvE static ELO deltas
+const PVE_WIN_DELTA = 3;
+const PVE_LOSS_DELTA = -5;
+
 /**
  * Record a game result: update ELO, wins/losses, gold.
  * @param {string} userId
  * @param {'win'|'loss'|'draw'|'abandon'} outcome
+ * @param {'pve'|'pvp'} mode — game mode
  * @returns {Object|null} updated profile row
  */
-export async function recordGameResult(userId, outcome) {
+export async function recordGameResult(userId, outcome, mode = 'pve') {
   if (!supabase || !userId) return null;
 
   // Fetch current profile
@@ -67,7 +72,17 @@ export async function recordGameResult(userId, outcome) {
   else if (outcome === 'draw') result = 0.5;
   else result = 0; // loss or abandon
 
-  const newElo = calculateNewElo(currentElo, AI_ELO, result);
+  let newElo;
+  if (mode === 'pve') {
+    // PvE: static delta (+3 win, -5 loss/abandon, 0 draw)
+    const delta = outcome === 'win' ? PVE_WIN_DELTA
+      : (outcome === 'loss' || outcome === 'abandon') ? PVE_LOSS_DELTA
+      : 0;
+    newElo = Math.max(0, currentElo + delta);
+  } else {
+    // PvP: Chess.com formula
+    newElo = calculateNewElo(currentElo, AI_ELO, result);
+  }
   const goldEarned = outcome === 'win' ? GOLD_PER_WIN : 0;
 
   const updates = {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/layout/Navbar';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
@@ -9,11 +10,13 @@ const TIER_LABELS = { 'tier-1': 'Guerriero', 'tier-2': 'Campione', 'tier-3': 'Le
 const FACTION_LABELS = { cavalieri: '⚔️ I Cavalieri', non_morti: '💀 I Non Morti' };
 
 export default function Profile() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, gold, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.username ?? '');
   const [saving, setSaving] = useState(false);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const avatarUrl = user?.user_metadata?.avatar_url;
 
@@ -25,6 +28,23 @@ export default function Profile() {
     }
     // Force full page reload to wipe all in-memory state
     window.location.href = '/login';
+  }
+
+  async function handleDeleteAccount() {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      // Call RPC to delete user from auth.users (cascades all data)
+      const { error } = await supabase.rpc('delete_own_account');
+      if (error) throw error;
+      // Sign out and redirect
+      await supabase.auth.signOut({ scope: 'global' });
+      window.location.href = '/login';
+    } catch (err) {
+      console.error('[Profile] deleteAccount error:', err);
+      setDeleting(false);
+      setShowDeletePopup(false);
+    }
   }
 
   async function handleSaveName() {
@@ -110,11 +130,11 @@ export default function Profile() {
               </div>
               <div className="flex items-center justify-between py-3 border-b border-fantasy-border/50">
                 <span className="text-fantasy-silver text-sm">ELO</span>
-                <span className="text-fantasy-purple-light text-sm font-semibold">{profile?.elo ?? 1000}</span>
+                <span className="text-fantasy-purple-light text-sm font-semibold">{profile?.elo ?? 100}</span>
               </div>
               <div className="flex items-center justify-between py-3 border-b border-fantasy-border/50">
                 <span className="text-fantasy-silver text-sm">Monete</span>
-                <span className="text-fantasy-gold text-sm font-semibold">🪙 {profile?.coins ?? 0}</span>
+                <span className="text-fantasy-gold text-sm font-semibold">🪙 {gold}</span>
               </div>
               <div className="flex items-center justify-between py-3 border-b border-fantasy-border/50">
                 <span className="text-fantasy-silver text-sm">Vittorie / Sconfitte</span>
@@ -129,9 +149,63 @@ export default function Profile() {
             >
               Esci
             </button>
+
+            {/* Delete Account */}
+            <button
+              onClick={() => setShowDeletePopup(true)}
+              className="w-full mt-3 py-3 rounded-xl border border-red-800/50 text-red-500/70 font-display font-bold text-xs hover:bg-red-900/10 hover:text-red-400 transition"
+            >
+              Elimina Account
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Popup */}
+      <AnimatePresence>
+        {showDeletePopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4"
+            onClick={() => !deleting && setShowDeletePopup(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-fantasy-card border-2 border-red-900/60 rounded-2xl p-8 max-w-md w-full text-center shadow-[0_0_60px_rgba(160,0,0,0.3)]"
+            >
+              <span className="text-5xl block mb-4">💀</span>
+              <h2 className="font-display font-bold text-2xl text-red-500 mb-3">
+                Eliminare Account?
+              </h2>
+              <p className="text-fantasy-silver text-sm mb-6 leading-relaxed">
+                Questa azione è <strong className="text-red-400">irreversibile</strong>. Tutte le tue carte,
+                mazzi, progressi e dati verranno eliminati per sempre.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeletePopup(false)}
+                  disabled={deleting}
+                  className="flex-1 py-3 rounded-xl border border-fantasy-border text-fantasy-silver font-display font-bold text-sm hover:bg-white/5 transition disabled:opacity-50"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="flex-1 py-3 rounded-xl bg-red-800 text-white font-display font-bold text-sm hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {deleting ? 'Eliminazione…' : 'Elimina per sempre'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

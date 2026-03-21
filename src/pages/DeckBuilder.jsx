@@ -2,10 +2,11 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/layout/Navbar';
-import { CARD_CATALOG } from '../game/data/cardCatalog';
+import SmartFilter from '../components/SmartFilter';
+import { CARD_CATALOG, TYPE_LABELS_IT, RARITIES } from '../game/data/cardCatalog';
 import { useAuth } from '../context/AuthContext';
 import { getCollectionMap } from '../services/collection';
-import { getUserDecks, saveDeck, getCardsInUse } from '../services/decks';
+import { getUserDecks, saveDeck, deleteDeck } from '../services/decks';
 import { playMedievalSound } from '../game/data/medievalAudio';
 
 const TYPE_ICONS = {
@@ -22,19 +23,13 @@ const RARITY_BORDER = {
 const MIN_KNIGHTS = 5;
 const MAX_DECK = 45;
 const MAX_COPIES = 5;
+const MAX_SAVED_DECKS = 5;
 
-/* ── Quantity Selector Popup ─────────────────────── */
+/* ── Dark Fantasy Quantity Popup with Slider ─────── */
 function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
   const [qty, setQty] = useState(1);
   const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
-
-  function handleChange(newVal) {
-    const clamped = Math.max(1, Math.min(maxQty, newVal));
-    if (clamped !== qty) {
-      playMedievalSound('click');
-      setQty(clamped);
-    }
-  }
+  const accentColor = card.rarity?.id === 'leggendaria' ? '#c9a84c' : '#a83232';
 
   return (
     <motion.div
@@ -42,128 +37,135 @@ function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.25 }}
       onClick={onClose}
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
     >
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        initial={{ scale: 0.85, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.85, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 28 }}
         onClick={e => e.stopPropagation()}
-        className="w-72 sm:w-80 rounded-2xl overflow-hidden"
+        className="w-80 sm:w-96 rounded-xl overflow-hidden"
         style={{
-          background: 'linear-gradient(145deg, #12121a 0%, #1a1a2e 50%, #0a0a0f 100%)',
-          border: `3px solid ${borderColor}`,
-          boxShadow: `0 0 40px ${borderColor}33, inset 0 1px 0 rgba(255,255,255,0.05)`,
+          background: 'linear-gradient(160deg, #1a1a2e 0%, #0d0d1a 40%, #12101c 100%)',
+          border: `2px solid ${borderColor}88`,
+          boxShadow: `0 0 60px ${borderColor}22, 0 25px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`,
         }}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b" style={{ borderColor, background: 'rgba(0,0,0,0.4)' }}>
+        <div
+          className="px-5 py-4 border-b"
+          style={{ borderColor: `${borderColor}44`, background: 'rgba(0,0,0,0.3)' }}
+        >
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{TYPE_ICONS[card.type]}</span>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ background: `${borderColor}15`, border: `1px solid ${borderColor}33` }}>
+              <span className="text-xl">{TYPE_ICONS[card.type]}</span>
+            </div>
             <div>
-              <p className="text-white font-bold" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', lineHeight: '1.4' }}>
-                {card.name}
-              </p>
-              <p className="text-[8px] mt-1" style={{ color: card.rarity?.color }}>{card.rarity?.label}</p>
+              <p className="text-white font-display font-bold text-sm">{card.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: card.rarity?.color }}>{card.rarity?.label}</p>
             </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="px-4 py-5">
-          <p className="text-center mb-5" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: '#e2d1a3', lineHeight: '1.6' }}>
+        <div className="px-5 py-6">
+          <p className="text-center mb-6 text-sm font-display" style={{ color: '#b8a67a' }}>
             Quante copie vuoi schierare?
           </p>
 
-          {/* Slider control */}
-          <div className="flex items-center justify-center gap-3 mb-5">
-            <button
-              onClick={() => handleChange(qty - 1)}
-              disabled={qty <= 1}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-lg font-bold transition disabled:opacity-30"
-              style={{
-                background: '#0a0a0f',
-                border: '2px solid #5a5a7a',
-                borderTopColor: '#8a8a9a',
-                borderLeftColor: '#8a8a9a',
-                borderRightColor: '#2a2a3a',
-                borderBottomColor: '#2a2a3a',
-                color: '#e2d1a3',
-                fontFamily: "'Press Start 2P', monospace",
-              }}
-            >
-              −
-            </button>
+          {/* Large quantity display */}
+          <div className="text-center mb-5">
+            <span className="text-5xl font-display font-bold" style={{ color: borderColor }}>{qty}</span>
+            <span className="text-lg text-fantasy-silver/50 ml-1">/ {maxQty}</span>
+          </div>
 
-            {/* Quantity display blocks */}
-            <div className="flex gap-1">
+          {/* Range slider */}
+          <div className="px-2 mb-6">
+            <input
+              type="range"
+              min={1}
+              max={maxQty}
+              value={qty}
+              onChange={e => setQty(Number(e.target.value))}
+              className="deck-qty-slider w-full"
+              style={{
+                '--slider-color': borderColor,
+                '--slider-accent': accentColor,
+              }}
+            />
+            <div className="flex justify-between mt-2 px-1">
               {Array.from({ length: maxQty }, (_, i) => (
-                <div
+                <button
                   key={i}
-                  className="w-7 h-7 rounded flex items-center justify-center transition-all duration-150"
-                  style={{
-                    background: i < qty
-                      ? `linear-gradient(135deg, ${borderColor}, ${borderColor}cc)`
-                      : '#1a1a2a',
-                    border: `2px solid ${i < qty ? borderColor : '#2a2a3a'}`,
-                    boxShadow: i < qty ? `0 0 8px ${borderColor}44` : 'none',
-                  }}
+                  onClick={() => setQty(i + 1)}
+                  className="text-[10px] font-display font-bold transition-colors"
+                  style={{ color: i < qty ? borderColor : '#3a3a5a' }}
                 >
-                  <span style={{
-                    fontFamily: "'Press Start 2P', monospace",
-                    fontSize: '8px',
-                    color: i < qty ? '#0a0a0f' : '#3a3a4a',
-                    fontWeight: 'bold',
-                  }}>
-                    {i + 1}
-                  </span>
-                </div>
+                  {i + 1}
+                </button>
               ))}
             </div>
-
-            <button
-              onClick={() => handleChange(qty + 1)}
-              disabled={qty >= maxQty}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-lg font-bold transition disabled:opacity-30"
-              style={{
-                background: '#0a0a0f',
-                border: '2px solid #5a5a7a',
-                borderTopColor: '#8a8a9a',
-                borderLeftColor: '#8a8a9a',
-                borderRightColor: '#2a2a3a',
-                borderBottomColor: '#2a2a3a',
-                color: '#e2d1a3',
-                fontFamily: "'Press Start 2P', monospace",
-              }}
-            >
-              +
-            </button>
           </div>
 
           {/* Confirm */}
           <button
             onClick={() => { playMedievalSound('armor'); onConfirm(qty); }}
-            className="w-full py-2.5 rounded-xl font-bold tracking-wider transition hover:brightness-110"
+            className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wider transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
             style={{
-              background: `linear-gradient(135deg, ${borderColor}, ${borderColor}cc)`,
+              background: `linear-gradient(135deg, ${borderColor}, ${borderColor}bb)`,
               color: '#0a0a0f',
-              fontFamily: "'Press Start 2P', monospace",
-              fontSize: '9px',
-              border: '2px solid transparent',
-              borderTopColor: `${borderColor}`,
-              borderLeftColor: `${borderColor}`,
-              borderRightColor: `${borderColor}88`,
-              borderBottomColor: `${borderColor}88`,
-              boxShadow: `0 4px 0 #000, 0 0 15px ${borderColor}33`,
+              boxShadow: `0 4px 15px ${borderColor}33, 0 2px 0 ${borderColor}88`,
             }}
           >
-            ✦ SCHIERA ×{qty}
+            Conferma — Schiera ×{qty}
           </button>
         </div>
       </motion.div>
+
+      {/* Slider CSS injected inline */}
+      <style>{`
+        .deck-qty-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          height: 6px;
+          border-radius: 3px;
+          background: linear-gradient(90deg, var(--slider-color) 0%, #1a1a2e 100%);
+          outline: none;
+          cursor: pointer;
+        }
+        .deck-qty-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 40% 40%, var(--slider-color), #0a0a0f);
+          border: 2px solid var(--slider-color);
+          box-shadow: 0 0 12px color-mix(in srgb, var(--slider-color) 40%, transparent),
+                      0 2px 6px rgba(0,0,0,0.5);
+          cursor: grab;
+          transition: box-shadow 0.2s;
+        }
+        .deck-qty-slider::-webkit-slider-thumb:active { cursor: grabbing; box-shadow: 0 0 20px var(--slider-color); }
+        .deck-qty-slider::-moz-range-thumb {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 40% 40%, var(--slider-color), #0a0a0f);
+          border: 2px solid var(--slider-color);
+          box-shadow: 0 0 12px color-mix(in srgb, var(--slider-color) 40%, transparent);
+          cursor: grab;
+        }
+        .deck-qty-slider::-moz-range-track {
+          height: 6px;
+          border-radius: 3px;
+          background: #1a1a2e;
+        }
+      `}</style>
     </motion.div>
   );
 }
@@ -173,41 +175,49 @@ export default function DeckBuilder() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [owned, setOwned] = useState({});
-  const [inUse, setInUse] = useState({});
   const [knights, setKnights] = useState([]);
   const [deckCards, setDeckCards] = useState([]);
   const [deckName, setDeckName] = useState('');
   const [deckId, setDeckId] = useState(null);
   const [savedDecks, setSavedDecks] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [filter, setFilter] = useState('Tutti');
   const [search, setSearch] = useState('');
+  const [knightRarities, setKnightRarities] = useState(new Set());
+  const [equipTypes, setEquipTypes] = useState(new Set());
+  const [equipRarities, setEquipRarities] = useState(new Set());
   const [qtyPopup, setQtyPopup] = useState(null);
+  const [randomError, setRandomError] = useState('');
 
   useEffect(() => {
     if (!user) return;
     getCollectionMap(user.id).then(setOwned);
     getUserDecks(user.id).then(setSavedDecks);
-    getCardsInUse(user.id).then(setInUse);
   }, [user]);
 
   const getAvailable = useCallback((catalogId) => {
     const totalOwned = owned[catalogId] ?? 0;
-    const usedElsewhere = inUse[catalogId] ?? 0;
     const usedHere = [...knights, ...deckCards].filter(id => id === catalogId).length;
-    return Math.max(0, totalOwned - usedElsewhere - usedHere);
-  }, [owned, inUse, knights, deckCards]);
+    return Math.max(0, totalOwned - usedHere);
+  }, [owned, knights, deckCards]);
 
   const allKnights = useMemo(() => CARD_CATALOG.filter(c => c.type === 'knight'), []);
   const allEquipment = useMemo(() => CARD_CATALOG.filter(c => c.type !== 'knight'), []);
 
+  const filteredKnights = useMemo(() => {
+    return allKnights.filter(c => {
+      if (knightRarities.size > 0 && !knightRarities.has(c.rarity?.id)) return false;
+      return true;
+    });
+  }, [allKnights, knightRarities]);
+
   const filteredEquipment = useMemo(() => {
     return allEquipment.filter(c => {
-      if (filter !== 'Tutti' && c.type !== filter) return false;
+      if (equipTypes.size > 0 && !equipTypes.has(c.type)) return false;
+      if (equipRarities.size > 0 && !equipRarities.has(c.rarity?.id)) return false;
       if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [allEquipment, filter, search]);
+  }, [allEquipment, equipTypes, equipRarities, search]);
 
   const deckTotal = useMemo(() => knights.length + deckCards.length, [knights, deckCards]);
   const deckByType = useMemo(() => {
@@ -221,54 +231,64 @@ export default function DeckBuilder() {
 
   const deckReady = knights.length === MIN_KNIGHTS && deckCards.length === MAX_DECK;
 
-  /* ── Knight click: toggle or add with popup ── */
+  /* ── Check if random generation is possible ── */
+  const canRandomize = useMemo(() => {
+    let knightCount = 0;
+    for (const k of allKnights) {
+      knightCount += Math.min(owned[k.catalogId] ?? 0, MAX_COPIES);
+    }
+    let equipCount = 0;
+    for (const e of allEquipment) {
+      equipCount += Math.min(owned[e.catalogId] ?? 0, MAX_COPIES);
+    }
+    return knightCount >= MIN_KNIGHTS && equipCount >= MAX_DECK;
+  }, [allKnights, allEquipment, owned]);
+
+  /* ── Left-click Knight: ADD ONLY ── */
   function handleKnightClick(card) {
-    const inDeck = knights.filter(id => id === card.catalogId).length;
     const totalOwned = owned[card.catalogId] ?? 0;
     const available = getAvailable(card.catalogId);
-
-    if (inDeck > 0) {
-      playMedievalSound('click');
-      const idx = knights.indexOf(card.catalogId);
-      setKnights(prev => prev.filter((_, i) => i !== idx));
-      return;
-    }
-
     if (knights.length >= MIN_KNIGHTS || totalOwned <= 0 || available <= 0) return;
 
     const maxAdd = Math.min(available, MIN_KNIGHTS - knights.length, MAX_COPIES);
-
-    if (maxAdd <= 1) {
+    if (maxAdd === 1) {
       playMedievalSound('click');
       setKnights(prev => [...prev, card.catalogId]);
-    } else {
+    } else if (maxAdd > 1) {
       setQtyPopup({ card, maxQty: maxAdd, isKnight: true });
     }
   }
 
-  /* ── Equipment click: toggle or add with popup ── */
+  /* ── Left-click Equipment: ADD ONLY ── */
   function handleEquipmentClick(card) {
-    const inDeck = deckCards.filter(id => id === card.catalogId).length;
     const totalOwned = owned[card.catalogId] ?? 0;
     const available = getAvailable(card.catalogId);
-
-    if (inDeck > 0) {
-      playMedievalSound('click');
-      const idx = deckCards.indexOf(card.catalogId);
-      setDeckCards(prev => prev.filter((_, i) => i !== idx));
-      return;
-    }
-
     if (deckCards.length >= MAX_DECK || totalOwned <= 0 || available <= 0) return;
 
     const maxAdd = Math.min(available, MAX_DECK - deckCards.length, MAX_COPIES);
-
-    if (maxAdd <= 1) {
+    if (maxAdd === 1) {
       playMedievalSound('click');
       setDeckCards(prev => [...prev, card.catalogId]);
-    } else {
+    } else if (maxAdd > 1) {
       setQtyPopup({ card, maxQty: maxAdd, isKnight: false });
     }
+  }
+
+  /* ── Right-click: REMOVE 1 copy from deck ── */
+  function handleRightClickKnight(e, catalogId) {
+    e.preventDefault();
+    const idx = knights.indexOf(catalogId);
+    if (idx === -1) return;
+    playMedievalSound('click');
+    setKnights(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function handleRightClickEquipment(e, catalogId) {
+    e.preventDefault();
+    const idx = deckCards.indexOf(catalogId);
+    if (idx === -1) return;
+    playMedievalSound('click');
+    setDeckCards(prev => prev.filter((_, i) => i !== idx));
   }
 
   function handleQtyConfirm(qty) {
@@ -279,33 +299,34 @@ export default function DeckBuilder() {
     } else {
       setDeckCards(prev => [...prev, ...copies]);
     }
+    playMedievalSound('armor');
     setQtyPopup(null);
   }
 
-  function removeKnight(index) {
-    playMedievalSound('click');
-    setKnights(prev => prev.filter((_, i) => i !== index));
-  }
-
-  function removeEquipment(index) {
-    playMedievalSound('click');
-    setDeckCards(prev => prev.filter((_, i) => i !== index));
-  }
-
-  /* ── Smart Random Deck Generator ── */
+  /* ── Smart Random Deck Generator (flattened pool) ── */
   function randomizeDeck() {
+    setRandomError('');
+
+    if (!canRandomize) {
+      setRandomError('Carte insufficienti! Servono almeno 5 cavalieri e 45 equipaggiamenti.');
+      playMedievalSound('error');
+      return;
+    }
+
     playMedievalSound('parchment');
     const tempKnights = [];
     const tempDeck = [];
     const tempUsage = {};
 
+    // Build flattened knight pool
     const knightPool = [];
     for (const k of allKnights) {
-      const avail = (owned[k.catalogId] ?? 0) - (inUse[k.catalogId] ?? 0);
+      const avail = owned[k.catalogId] ?? 0;
       for (let i = 0; i < Math.min(avail, MAX_COPIES); i++) {
         knightPool.push(k.catalogId);
       }
     }
+    // Fisher-Yates shuffle
     for (let i = knightPool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [knightPool[i], knightPool[j]] = [knightPool[j], knightPool[i]];
@@ -313,16 +334,17 @@ export default function DeckBuilder() {
     for (const cid of knightPool) {
       if (tempKnights.length >= MIN_KNIGHTS) break;
       const used = tempUsage[cid] ?? 0;
-      const avail = (owned[cid] ?? 0) - (inUse[cid] ?? 0) - used;
+      const avail = (owned[cid] ?? 0) - used;
       if (avail > 0) {
         tempKnights.push(cid);
         tempUsage[cid] = used + 1;
       }
     }
 
+    // Build flattened equipment pool
     const equipPool = [];
     for (const e of allEquipment) {
-      const avail = (owned[e.catalogId] ?? 0) - (inUse[e.catalogId] ?? 0);
+      const avail = owned[e.catalogId] ?? 0;
       for (let i = 0; i < Math.min(avail, MAX_COPIES); i++) {
         equipPool.push(e.catalogId);
       }
@@ -334,11 +356,17 @@ export default function DeckBuilder() {
     for (const cid of equipPool) {
       if (tempDeck.length >= MAX_DECK) break;
       const used = tempUsage[cid] ?? 0;
-      const avail = (owned[cid] ?? 0) - (inUse[cid] ?? 0) - used;
+      const avail = (owned[cid] ?? 0) - used;
       if (avail > 0) {
         tempDeck.push(cid);
         tempUsage[cid] = used + 1;
       }
+    }
+
+    if (tempKnights.length < MIN_KNIGHTS || tempDeck.length < MAX_DECK) {
+      setRandomError(`Generazione incompleta: ${tempKnights.length} cavalieri, ${tempDeck.length} carte.`);
+      playMedievalSound('error');
+      return;
     }
 
     setKnights(tempKnights);
@@ -348,7 +376,16 @@ export default function DeckBuilder() {
 
   async function handleSave() {
     if (!user) return;
+
+    // Limit: max 5 saved decks (allow update of existing)
+    if (!deckId && savedDecks.length >= MAX_SAVED_DECKS) {
+      playMedievalSound('error');
+      setRandomError(`Massimo ${MAX_SAVED_DECKS} mazzi salvati! Elimina un mazzo per salvarne uno nuovo.`);
+      return;
+    }
+
     setSaving(true);
+    setRandomError('');
     playMedievalSound('parchment');
     try {
       const result = await saveDeck(user.id, {
@@ -361,13 +398,28 @@ export default function DeckBuilder() {
         setDeckId(result.id);
         playMedievalSound('save');
         getUserDecks(user.id).then(setSavedDecks);
-        getCardsInUse(user.id).then(setInUse);
       }
     } catch (err) {
       console.error('Save deck error:', err);
       playMedievalSound('error');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDeleteDeck(e, deck) {
+    e.stopPropagation();
+    if (!user) return;
+    playMedievalSound('click');
+    const ok = await deleteDeck(user.id, deck.id);
+    if (ok) {
+      setSavedDecks(prev => prev.filter(d => d.id !== deck.id));
+      if (deckId === deck.id) {
+        setDeckId(null);
+        setDeckName('');
+        setKnights([]);
+        setDeckCards([]);
+      }
     }
   }
 
@@ -379,8 +431,6 @@ export default function DeckBuilder() {
     setDeckCards(deck.cards ?? []);
   }
 
-  const hasValidDeck = savedDecks.some(d => (d.knights?.length ?? 0) === MIN_KNIGHTS && (d.cards?.length ?? 0) === MAX_DECK);
-
   return (
     <div className="min-h-screen bg-fantasy-darker">
       <Navbar />
@@ -390,12 +440,18 @@ export default function DeckBuilder() {
             <h1 className="font-display font-bold text-3xl text-white">
               Deck <span className="text-gold-gradient">Builder</span>
             </h1>
-            <button
-              onClick={randomizeDeck}
-              className="px-4 py-2 rounded-lg border border-fantasy-gold/40 text-fantasy-gold text-xs font-display font-semibold hover:bg-fantasy-gold/10 transition"
-            >
-              🎲 Genera Mazzo Casuale
-            </button>
+            <div className="flex items-center gap-3">
+              {randomError && (
+                <span className="text-xs text-red-400 max-w-[200px] text-right leading-tight">{randomError}</span>
+              )}
+              <button
+                onClick={randomizeDeck}
+                disabled={!canRandomize}
+                className="px-4 py-2 rounded-lg border border-fantasy-gold/40 text-fantasy-gold text-xs font-display font-semibold hover:bg-fantasy-gold/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                🎲 Genera Mazzo Casuale
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -403,14 +459,20 @@ export default function DeckBuilder() {
             <div className="lg:col-span-2 space-y-6">
               {/* ── Section 1: Knights ─────────────── */}
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
-                <div className="flex items-baseline gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-4">
                   <h2 className="font-display font-bold text-lg text-white">⚔️ Seleziona Cavalieri</h2>
                   <span className={`text-xs font-bold ${knights.length >= MIN_KNIGHTS ? 'text-fantasy-gold' : 'text-fantasy-silver'}`}>
                     {knights.length}/{MIN_KNIGHTS}
                   </span>
+                  <SmartFilter
+                    rarityOptions={RARITIES}
+                    selectedTypes={new Set()}
+                    selectedRarities={knightRarities}
+                    onChange={(_t, r) => setKnightRarities(r)}
+                  />
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                  {allKnights.map(card => {
+                  {filteredKnights.map(card => {
                     const totalOwned = owned[card.catalogId] ?? 0;
                     const available = getAvailable(card.catalogId);
                     const inDeck = knights.filter(id => id === card.catalogId).length;
@@ -419,11 +481,11 @@ export default function DeckBuilder() {
                     const borderColor = inDeck > 0 ? '#c9a84c' : RARITY_BORDER[card.rarity?.id ?? 'comune'];
 
                     return (
-                      <button
+                      <div
                         key={card.catalogId}
-                        onClick={() => handleKnightClick(card)}
-                        disabled={disabled}
-                        className="relative rounded-xl overflow-hidden text-left transition-all duration-200"
+                        onClick={() => !disabled && handleKnightClick(card)}
+                        onContextMenu={(e) => handleRightClickKnight(e, card.catalogId)}
+                        className="relative rounded-xl overflow-hidden text-left transition-all duration-200 select-none"
                         style={{
                           background: disabled ? '#0a0a0f' : '#12121a',
                           border: `2px solid ${disabled ? '#1a1a2a' : borderColor}`,
@@ -456,7 +518,7 @@ export default function DeckBuilder() {
                             {inDeck}
                           </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -479,24 +541,13 @@ export default function DeckBuilder() {
                     placeholder="Cerca carta…"
                     className="flex-1 px-3 py-2 bg-fantasy-darker border border-fantasy-border rounded-lg text-white text-sm placeholder:text-fantasy-silver/50 focus:outline-none focus:border-fantasy-gold transition"
                   />
-                  <div className="flex flex-wrap gap-1.5">
-                    {['Tutti', 'weapon', 'shield', 'item', 'terrain'].map(t => {
-                      const labels = { Tutti: 'Tutti', weapon: 'Armi', shield: 'Scudi', item: 'Oggetti', terrain: 'Terreni' };
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => setFilter(t)}
-                          className={`px-3 py-1.5 rounded-lg text-xs border transition ${
-                            filter === t
-                              ? 'border-fantasy-gold bg-fantasy-gold/10 text-fantasy-gold'
-                              : 'border-fantasy-border text-fantasy-silver hover:text-white hover:border-fantasy-gold/40'
-                          }`}
-                        >
-                          {labels[t]}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <SmartFilter
+                    typeOptions={{ weapon: TYPE_LABELS_IT.weapon, shield: TYPE_LABELS_IT.shield, item: TYPE_LABELS_IT.item, terrain: TYPE_LABELS_IT.terrain }}
+                    rarityOptions={RARITIES}
+                    selectedTypes={equipTypes}
+                    selectedRarities={equipRarities}
+                    onChange={(t, r) => { setEquipTypes(t); setEquipRarities(r); }}
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[45vh] overflow-y-auto pr-1">
@@ -509,11 +560,11 @@ export default function DeckBuilder() {
                     const borderColor = RARITY_BORDER[card.rarity?.id ?? 'comune'];
 
                     return (
-                      <button
+                      <div
                         key={card.catalogId}
-                        onClick={() => handleEquipmentClick(card)}
-                        disabled={disabled}
-                        className="relative rounded-xl overflow-hidden text-left transition-all duration-200"
+                        onClick={() => !disabled && handleEquipmentClick(card)}
+                        onContextMenu={(e) => handleRightClickEquipment(e, card.catalogId)}
+                        className="relative rounded-xl overflow-hidden text-left transition-all duration-200 select-none"
                         style={{
                           background: disabled ? '#0a0a0f' : '#12121a',
                           border: `2px solid ${disabled ? '#1a1a2a' : borderColor}`,
@@ -546,7 +597,7 @@ export default function DeckBuilder() {
                             {inDeck}
                           </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -584,6 +635,8 @@ export default function DeckBuilder() {
                   Totale: {deckTotal}/50 {deckReady ? '✓ Pronto!' : ''}
                 </div>
 
+                <p className="text-[9px] text-fantasy-silver/40 mb-2 italic">Tasto destro su una carta per rimuoverla dal mazzo</p>
+
                 {knights.length > 0 && (
                   <div className="mb-3">
                     <p className="text-[10px] text-fantasy-gold font-display mb-1">Cavalieri selezionati:</p>
@@ -591,10 +644,13 @@ export default function DeckBuilder() {
                       {knights.map((id, i) => {
                         const card = CARD_CATALOG.find(c => c.catalogId === id);
                         return (
-                          <div key={`k-${i}`} className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded group">
+                          <div
+                            key={`k-${i}`}
+                            className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded cursor-pointer hover:bg-fantasy-darker/80 transition"
+                            onContextMenu={(e) => handleRightClickKnight(e, id)}
+                          >
                             <span className="text-xs">⚔️</span>
                             <span className="flex-1 text-white text-[11px] truncate">{card?.name}</span>
-                            <button onClick={() => removeKnight(i)} className="text-fantasy-red/50 hover:text-fantasy-red text-[10px] opacity-0 group-hover:opacity-100 transition">✕</button>
                           </div>
                         );
                       })}
@@ -612,17 +668,23 @@ export default function DeckBuilder() {
                     const card = CARD_CATALOG.find(c => c.catalogId === id);
                     if (!card) return null;
                     return (
-                      <div key={`e-${i}`} className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded group">
+                      <div
+                        key={`e-${i}`}
+                        className="flex items-center gap-2 px-2 py-1 bg-fantasy-darker rounded cursor-pointer hover:bg-fantasy-darker/80 transition"
+                        onContextMenu={(e) => handleRightClickEquipment(e, id)}
+                      >
                         <span className="text-xs">{TYPE_ICONS[card.type]}</span>
                         <span className="flex-1 text-white text-[11px] truncate">{card.name}</span>
                         <span className="text-[9px]" style={{ color: card.rarity?.color }}>{card.rarity?.label}</span>
-                        <button onClick={() => removeEquipment(i)} className="text-fantasy-red/50 hover:text-fantasy-red text-[10px] opacity-0 group-hover:opacity-100 transition">✕</button>
                       </div>
                     );
                   })}
                 </div>
 
                 <div className="mt-4 space-y-2">
+                  {randomError && (
+                    <p className="text-xs text-red-400 text-center py-1">{randomError}</p>
+                  )}
                   <button
                     onClick={handleSave}
                     disabled={knights.length < MIN_KNIGHTS || deckCards.length === 0 || saving}
@@ -632,31 +694,30 @@ export default function DeckBuilder() {
                       color: '#0a0a0f',
                     }}
                   >
-                    {saving ? 'Salvataggio…' : '💾 SALVA DECK'}
+                    {saving ? 'Salvataggio…' : `💾 SALVA DECK (${savedDecks.length}/${MAX_SAVED_DECKS})`}
                   </button>
                   <button
                     onClick={() => {
-                      const deck = savedDecks.find(d => (d.knights?.length ?? 0) === MIN_KNIGHTS && (d.cards?.length ?? 0) === MAX_DECK);
-                      if (!deck) {
+                      if (!deckReady) {
                         playMedievalSound('error');
                         return;
                       }
                       playMedievalSound('armor');
-                      navigate('/play', { state: { deckId: deck.id, knights: deck.knights, cards: deck.cards } });
+                      navigate('/play', { state: { deckId: deckId, knights, cards: deckCards, mode: 'pve' } });
                     }}
-                    disabled={!hasValidDeck}
+                    disabled={!deckReady}
                     className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wider transition disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{
-                      background: hasValidDeck ? 'linear-gradient(135deg, #a83232, #ff4444)' : '#333',
+                      background: deckReady ? 'linear-gradient(135deg, #a83232, #ff4444)' : '#333',
                       color: '#fff',
-                      boxShadow: hasValidDeck ? '0 0 25px rgba(168,50,50,0.4)' : 'none',
+                      boxShadow: deckReady ? '0 0 25px rgba(168,50,50,0.4)' : 'none',
                     }}
                   >
                     ⚔️ INIZIA PARTITA
                   </button>
                   {(knights.length > 0 || deckCards.length > 0) && (
                     <button
-                      onClick={() => { setKnights([]); setDeckCards([]); setDeckId(null); setDeckName(''); playMedievalSound('click'); }}
+                      onClick={() => { setKnights([]); setDeckCards([]); setDeckId(null); setDeckName(''); setRandomError(''); playMedievalSound('click'); }}
                       className="w-full py-2 rounded-xl border border-fantasy-border text-fantasy-silver text-xs hover:text-fantasy-red hover:border-fantasy-red/40 transition"
                     >
                       Svuota mazzo
@@ -667,21 +728,34 @@ export default function DeckBuilder() {
 
               {savedDecks.length > 0 && (
                 <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
-                  <h3 className="font-display font-semibold text-white text-sm mb-3">Mazzi Salvati</h3>
+                  <h3 className="font-display font-semibold text-white text-sm mb-3">
+                    Mazzi Salvati ({savedDecks.length}/{MAX_SAVED_DECKS})
+                  </h3>
                   <div className="space-y-2">
                     {savedDecks.map(d => (
-                      <button
+                      <div
                         key={d.id}
-                        onClick={() => loadDeck(d)}
-                        className={`w-full text-left px-3 py-2 rounded-lg border transition ${
+                        className={`flex items-center gap-2 rounded-lg border transition ${
                           d.id === deckId ? 'border-fantasy-gold bg-fantasy-gold/10' : 'border-fantasy-border hover:border-fantasy-gold/40'
                         }`}
                       >
-                        <p className="text-white text-xs font-display">{d.name}</p>
-                        <p className="text-fantasy-silver text-[10px]">
-                          {(d.knights?.length ?? 0)} cavalieri · {(d.cards?.length ?? 0)} carte
-                        </p>
-                      </button>
+                        <button
+                          onClick={() => loadDeck(d)}
+                          className="flex-1 text-left px-3 py-2"
+                        >
+                          <p className="text-white text-xs font-display">{d.name}</p>
+                          <p className="text-fantasy-silver text-[10px]">
+                            {(d.knights?.length ?? 0)} cavalieri · {(d.cards?.length ?? 0)} carte
+                          </p>
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteDeck(e, d)}
+                          className="px-3 py-2 text-fantasy-silver/40 hover:text-red-400 transition"
+                          title="Elimina mazzo"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>

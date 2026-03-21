@@ -1,9 +1,23 @@
 /*
  * cardCatalog.js — Expanded 60+ card catalog with Dark Fantasy theme.
+ * MASTER SOURCE: gameData.js arrays (knightNames, weaponNames, shieldNames, itemDefs, terrainDefs).
+ * All item/terrain IDs, CU values, and descriptions come from gameData.
  * Used by Collection, DeckBuilder, PackOpening.
- * Each card has: catalogId, name, type, rarity, stats, desc, art.
  */
-import { getPixelSVG, pixelArtsKnights, pixelArtsWeapons, pixelArtsShields, pixelArtsItems, pixelArtsTerrains } from './gameData';
+import {
+  getPixelSVG,
+  knightNames, weaponNames, shieldNames, itemDefs, terrainDefs,
+  pixelArtsKnights, pixelArtsWeapons, pixelArtsShields, pixelArtsItems, pixelArtsTerrains,
+} from './gameData';
+
+/* ── Nomi in Italiano ─────────────────── */
+export const TYPE_LABELS_IT = {
+  knight: 'Cavalieri',
+  weapon: 'Armi',
+  shield: 'Scudi',
+  item: 'Oggetti',
+  terrain: 'Terreni',
+};
 
 /* ── Rarities ─────────────────────────────────────── */
 export const RARITIES = [
@@ -70,35 +84,37 @@ const SHIELDS = [
   { name: 'Scudo Eterno',             rarity: 'leggendaria', defBonus: 8 },
 ];
 
-/* ── Items (13) ───────────────────────────────────── */
+/* ── Items (13) — Base 10 IDs sourced from gameData.itemDefs ─── */
+const _id = (id) => itemDefs.find(d => d.id === id);
 const ITEMS = [
-  { name: 'Ampolla di Cura',          rarity: 'comune',      itemId: 'ampolla',    desc: '+5 DEF',                        cu: 1 },
-  { name: 'Sidro Guerriero',          rarity: 'comune',      itemId: 'sidro',      desc: '+3 PA',                         cu: 0 },
-  { name: 'Sabbia negli Occhi',       rarity: 'rara',        itemId: 'sabbia',     desc: 'Acceca nemico (2T), 1/2 ATK',   cu: 2 },
-  { name: 'Afferra Arma',             rarity: 'rara',        itemId: 'afferra',    desc: 'Togli ATK bonus nemico',        cu: 1 },
-  { name: 'Veleno Berserker',         rarity: 'rara',        itemId: 'veleno',     desc: '+1 ATK/-1 DEF (3T)',            cu: 1 },
-  { name: 'Lacrima di Angelo',        rarity: 'epica',       itemId: 'lacrima',    desc: '+1 DEF/-1 ATK (3T)',            cu: 1 },
-  { name: 'Sangue al Nemico',         rarity: 'epica',       itemId: 'sangue',     desc: '-5 DEF, blocca DEF nemico',     cu: 1 },
-  { name: 'Fortuna Liquida',          rarity: 'comune',      itemId: 'fortuna',    desc: 'Peschi 1 carta extra',          cu: 1 },
-  { name: 'Sacrificio',               rarity: 'epica',       itemId: 'sacrificio', desc: 'ATK/DEF 15, PA 0, no pesca(3T)',cu: 0 },
-  { name: 'Sottrai',                  rarity: 'leggendaria', itemId: 'sottrai',    desc: 'Distruggi carta nemico, no atk 1T', cu: 2 },
-  { name: 'Fiala di Nebbia',          rarity: 'comune',      itemId: 'fortuna',    desc: 'Peschi 1 carta extra',          cu: 1 },
-  { name: 'Polvere Oscura',           rarity: 'rara',        itemId: 'veleno',     desc: '+1 ATK/-1 DEF (3T)',            cu: 1 },
-  { name: 'Essenza della Tomba',      rarity: 'epica',       itemId: 'lacrima',    desc: '+1 DEF/-1 ATK (3T)',            cu: 1 },
+  { name: 'Ampolla di Cura',          rarity: 'comune',      itemId: 'ampolla',    desc: _id('ampolla').desc,    cu: _id('ampolla').cu },
+  { name: 'Sidro Guerriero',          rarity: 'comune',      itemId: 'sidro',      desc: _id('sidro').desc,      cu: _id('sidro').cu },
+  { name: 'Sabbia negli Occhi',       rarity: 'rara',        itemId: 'sabbia',     desc: _id('sabbia').desc,     cu: _id('sabbia').cu },
+  { name: 'Afferra Arma',             rarity: 'rara',        itemId: 'afferra',    desc: _id('afferra').desc,    cu: _id('afferra').cu },
+  { name: 'Veleno Berserker',         rarity: 'rara',        itemId: 'veleno',     desc: _id('veleno').desc,     cu: _id('veleno').cu },
+  { name: 'Lacrima di Angelo',        rarity: 'epica',       itemId: 'lacrima',    desc: _id('lacrima').desc,    cu: _id('lacrima').cu },
+  { name: 'Sangue al Nemico',         rarity: 'epica',       itemId: 'sangue',     desc: _id('sangue').desc,     cu: _id('sangue').cu },
+  { name: 'Fortuna Liquida',          rarity: 'comune',      itemId: 'fortuna',    desc: _id('fortuna').desc,    cu: _id('fortuna').cu },
+  { name: 'Sacrificio',               rarity: 'epica',       itemId: 'sacrificio', desc: _id('sacrificio').desc, cu: _id('sacrificio').cu },
+  { name: 'Sottrai',                  rarity: 'leggendaria', itemId: 'sottrai',    desc: _id('sottrai').desc,    cu: _id('sottrai').cu },
+  { name: 'Fiala di Nebbia',          rarity: 'comune',      itemId: 'fortuna',    desc: _id('fortuna').desc,    cu: _id('fortuna').cu },
+  { name: 'Polvere Oscura',           rarity: 'rara',        itemId: 'veleno',     desc: _id('veleno').desc,     cu: _id('veleno').cu },
+  { name: 'Essenza della Tomba',      rarity: 'epica',       itemId: 'lacrima',    desc: _id('lacrima').desc,    cu: _id('lacrima').cu },
 ];
 
-/* ── Terrains (10) ────────────────────────────────── */
+/* ── Terrains (10) — Base 5 IDs sourced from gameData.terrainDefs ── */
+const _td = (id) => terrainDefs.find(d => d.id === id);
 const TERRAINS = [
-  { name: 'Terremoto',                rarity: 'rara',        terrainId: 'terremoto', desc: 'Dimezza ATK e DEF (3T)' },
-  { name: 'Pioggia Divina',           rarity: 'comune',      terrainId: 'pioggia',   desc: '+2 DEF curati ogni turno (3T)' },
-  { name: 'Catene Infernali',         rarity: 'epica',       terrainId: 'catene',    desc: 'Annulla potenziamenti (3T)' },
-  { name: 'Sonno Profondo',           rarity: 'rara',        terrainId: 'sonno',     desc: 'Battaglia Lenta, -5 ATK (3T)' },
-  { name: 'Riflesso Oscuro',          rarity: 'leggendaria', terrainId: 'riflesso',  desc: 'Nemico clone tuo cavaliere (3T)' },
-  { name: 'Nebbia dei Morti',         rarity: 'comune',      terrainId: 'pioggia',   desc: '+2 DEF curati ogni turno (3T)' },
-  { name: 'Frattura Tellurica',       rarity: 'rara',        terrainId: 'terremoto', desc: 'Dimezza ATK e DEF (3T)' },
-  { name: 'Ghiaccio Perenne',         rarity: 'epica',       terrainId: 'sonno',     desc: 'Battaglia Lenta, -5 ATK (3T)' },
-  { name: 'Fossa dell\'Oblio',        rarity: 'epica',       terrainId: 'catene',    desc: 'Annulla potenziamenti (3T)' },
-  { name: 'Specchio dell\'Anima',     rarity: 'leggendaria', terrainId: 'riflesso',  desc: 'Nemico clone tuo cavaliere (3T)' },
+  { name: 'Terremoto',                rarity: 'rara',        terrainId: 'terremoto', desc: _td('terremoto').desc },
+  { name: 'Pioggia Divina',           rarity: 'comune',      terrainId: 'pioggia',   desc: _td('pioggia').desc },
+  { name: 'Catene Infernali',         rarity: 'epica',       terrainId: 'catene',    desc: _td('catene').desc },
+  { name: 'Sonno Profondo',           rarity: 'rara',        terrainId: 'sonno',     desc: _td('sonno').desc },
+  { name: 'Riflesso Oscuro',          rarity: 'leggendaria', terrainId: 'riflesso',  desc: _td('riflesso').desc },
+  { name: 'Nebbia dei Morti',         rarity: 'comune',      terrainId: 'pioggia',   desc: _td('pioggia').desc },
+  { name: 'Frattura Tellurica',       rarity: 'rara',        terrainId: 'terremoto', desc: _td('terremoto').desc },
+  { name: 'Ghiaccio Perenne',         rarity: 'epica',       terrainId: 'sonno',     desc: _td('sonno').desc },
+  { name: 'Fossa dell\'Oblio',        rarity: 'epica',       terrainId: 'catene',    desc: _td('catene').desc },
+  { name: 'Specchio dell\'Anima',     rarity: 'leggendaria', terrainId: 'riflesso',  desc: _td('riflesso').desc },
 ];
 
 /* ── Build catalog ────────────────────────────────── */

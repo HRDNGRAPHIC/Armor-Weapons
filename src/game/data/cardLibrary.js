@@ -60,27 +60,58 @@ export function getRelatedCards(catalogId) {
 }
 
 /**
- * Generate a Starter Deck: 45 Common cards + 0.07% chance of Uncommon each.
- * Returns array of { catalogId, quantity: 1 } for addCardsToCollection.
+ * Generate a Starter Deck: exactly 5 knights + 45 equipment = 50 cards.
+ * Mirrors the game engine composition: 15 weapons, 15 shields, 10 items, 5 terrains.
+ * Uses common-rarity cards from the catalog, distributing copies evenly.
+ * Returns array of { catalogId, quantity } for addCardsToCollection.
  */
 export function generateStarterDeck() {
-  const commonCards = CARD_CATALOG.filter(c => c.rarity?.id === 'comune');
-  const rareCards = CARD_CATALOG.filter(c => c.rarity?.id === 'rara');
-  const cards = [];
-  const cardCounts = {};
+  const counts = {};
+  const add = (id) => { counts[id] = (counts[id] ?? 0) + 1; };
 
-  for (let i = 0; i < 45; i++) {
-    let card;
-    // 0.07% chance for a Rare (Uncommon equivalent)
-    if (Math.random() < 0.0007 && rareCards.length > 0) {
-      card = rareCards[Math.floor(Math.random() * rareCards.length)];
-    } else {
-      card = commonCards[Math.floor(Math.random() * commonCards.length)];
-    }
-    cardCounts[card.catalogId] = (cardCounts[card.catalogId] ?? 0) + 1;
+  // 5 knights — use the 4 comuni (K000-K003) + 1 duplicate
+  const commonKnights = CARD_CATALOG.filter(c => c.type === 'knight' && c.rarity?.id === 'comune');
+  for (let i = 0; i < 5; i++) {
+    add(commonKnights[i % commonKnights.length].catalogId);
   }
 
-  return Object.entries(cardCounts).map(([catalogId, quantity]) => ({
+  // 15 weapons — distribute evenly across common weapons
+  const commonWeapons = CARD_CATALOG.filter(c => c.type === 'weapon' && c.rarity?.id === 'comune');
+  for (let i = 0; i < 15; i++) {
+    add(commonWeapons[i % commonWeapons.length].catalogId);
+  }
+
+  // 15 shields — distribute evenly across common shields
+  const commonShields = CARD_CATALOG.filter(c => c.type === 'shield' && c.rarity?.id === 'comune');
+  for (let i = 0; i < 15; i++) {
+    add(commonShields[i % commonShields.length].catalogId);
+  }
+
+  // 10 items — one of each base item (first 10 with unique itemIds from gameData)
+  const seenItemIds = new Set();
+  const baseItems = CARD_CATALOG.filter(c => {
+    if (c.type !== 'item') return false;
+    if (seenItemIds.has(c.itemId)) return false;
+    seenItemIds.add(c.itemId);
+    return true;
+  });
+  for (const item of baseItems.slice(0, 10)) {
+    add(item.catalogId);
+  }
+
+  // 5 terrains — one of each base terrain (first 5 with unique terrainIds from gameData)
+  const seenTerrainIds = new Set();
+  const baseTerrains = CARD_CATALOG.filter(c => {
+    if (c.type !== 'terrain') return false;
+    if (seenTerrainIds.has(c.terrainId)) return false;
+    seenTerrainIds.add(c.terrainId);
+    return true;
+  });
+  for (const terrain of baseTerrains.slice(0, 5)) {
+    add(terrain.catalogId);
+  }
+
+  return Object.entries(counts).map(([catalogId, quantity]) => ({
     catalogId,
     quantity,
   }));

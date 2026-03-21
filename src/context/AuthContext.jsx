@@ -6,6 +6,7 @@ const AuthContext = createContext({
   user: null,
   session: null,
   profile: null,
+  gold: 0,
   loading: false,
   profileLoading: false,
   refreshProfile: () => {},
@@ -43,6 +44,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [gold, setGold] = useState(0);
   const [loading, setLoading] = useState(!!supabase);
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -50,7 +52,7 @@ export function AuthProvider({ children }) {
   const signingOutRef = useRef(false);
 
   const loadProfile = useCallback(async (u) => {
-    if (!u) { setProfile(null); setProfileLoading(false); return; }
+    if (!u) { setProfile(null); setGold(0); setProfileLoading(false); return; }
     setProfileLoading(true);
     try {
       const p = await ensureProfile(u);
@@ -62,11 +64,13 @@ export function AuthProvider({ children }) {
           setSession(null);
           setUser(null);
           setProfile(null);
+          setGold(0);
           signingOutRef.current = false;
         }
         return;
       }
       setProfile(p);
+      setGold(p.gold ?? 0);
     } catch (err) {
       console.error('[Auth] loadProfile error:', err);
       setProfile(null);
@@ -78,6 +82,33 @@ export function AuthProvider({ children }) {
   const refreshProfile = useCallback(async () => {
     if (user) await loadProfile(user);
   }, [user, loadProfile]);
+
+  // Realtime subscription for profile changes (gold, elo, wins, etc.)
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    const channel = supabase
+      .channel(`profile-changes-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          const updated = payload.new;
+          setProfile(prev => prev ? { ...prev, ...updated } : updated);
+          if (updated.gold !== undefined) setGold(updated.gold);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -125,7 +156,7 @@ export function AuthProvider({ children }) {
   }, [loadProfile]);
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, profileLoading, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, gold, loading, profileLoading, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

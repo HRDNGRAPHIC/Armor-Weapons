@@ -104,7 +104,7 @@ export default function Lobby() {
   const coins   = profile?.coins  ?? 0;
   const wins    = profile?.wins   ?? 0;
   const losses  = profile?.losses ?? 0;
-  const elo     = profile?.elo    ?? 1000;
+  const elo     = profile?.elo    ?? 100;
   const rank    = getRank(level);
   const avatarUrl = user?.user_metadata?.avatar_url;
   const displayName = profile?.username
@@ -254,14 +254,23 @@ export default function Lobby() {
             ))}
           </div>
 
-          {/* ── Play Button ────────────────────────── */}
-          <div className="mt-10 text-center">
+          {/* ── Play Buttons ────────────────────────── */}
+          <div className="mt-10 flex flex-col items-center gap-4">
             <Link
               to="/play"
+              state={{ mode: 'pve' }}
               className="inline-block px-14 py-4 rounded-xl bg-gradient-to-r from-fantasy-gold to-fantasy-gold-light text-fantasy-darker font-display font-bold text-xl tracking-wider hover:brightness-110 hover:shadow-[0_0_50px_rgba(201,168,76,0.3)] transition-all duration-300"
             >
-              ⚔️ Cerca Partita
+              ⚔️ Gioca contro il Computer
             </Link>
+            <button
+              disabled
+              className="inline-block px-14 py-4 rounded-xl border border-fantasy-border text-fantasy-silver font-display font-bold text-lg tracking-wider opacity-50 cursor-not-allowed"
+              title="Presto disponibile"
+            >
+              🛡️ Gioca contro Giocatori
+            </button>
+            <p className="text-fantasy-silver text-xs">Il PvP online sarà disponibile prossimamente</p>
           </div>
         </div>
       </div>

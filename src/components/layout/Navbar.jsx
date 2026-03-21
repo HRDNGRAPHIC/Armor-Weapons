@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { countPendingPacks } from '../../services/packs';
 
@@ -24,8 +24,28 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const links = user ? [...NAV_LINKS, ...AUTH_LINKS] : NAV_LINKS;
+
+  // Handle hash link clicks with smooth scroll
+  const handleHashClick = useCallback((e, to) => {
+    const hashIndex = to.indexOf('#');
+    if (hashIndex === -1) return; // not a hash link, let <Link> handle
+    e.preventDefault();
+    const hash = to.slice(hashIndex + 1);
+    if (location.pathname === '/') {
+      // Already on homepage — just scroll
+      document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // Navigate to homepage, then scroll after mount
+      navigate('/');
+      setTimeout(() => {
+        document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+    setMobileOpen(false);
+  }, [location.pathname, navigate]);
 
   // Load pending pack count
   useEffect(() => {
@@ -58,10 +78,12 @@ export default function Navbar() {
         <ul className="hidden md:flex items-center gap-1">
           {links.map((l) => {
             const active = location.pathname === l.to;
+            const isHash = l.to.includes('#');
             return (
               <li key={l.to}>
                 <Link
                   to={l.to}
+                  onClick={isHash ? (e) => handleHashClick(e, l.to) : undefined}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors
                     ${active
                       ? 'text-fantasy-gold bg-fantasy-gold/10'
@@ -168,17 +190,20 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="md:hidden bg-fantasy-dark border-t border-fantasy-border">
           <ul className="flex flex-col px-4 py-3 gap-1">
-            {links.map((l) => (
+            {links.map((l) => {
+              const isHash = l.to.includes('#');
+              return (
               <li key={l.to}>
                 <Link
                   to={l.to}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={isHash ? (e) => handleHashClick(e, l.to) : () => setMobileOpen(false)}
                   className="block px-3 py-2 rounded-md text-sm font-medium text-fantasy-silver hover:text-white hover:bg-white/5 transition"
                 >
                   {l.label}
                 </Link>
               </li>
-            ))}
+              );
+            })}
             {/* Mobile Pacchetti link */}
             {user && pendingPacks > 0 && (
               <li>

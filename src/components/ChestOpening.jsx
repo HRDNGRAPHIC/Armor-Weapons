@@ -247,7 +247,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
             >
               Tocca per Aprire il Forziere
             </motion.p>
-            <p className="text-fantasy-silver text-xs mt-2">Forziere Starter — 45 Carte</p>
+            <p className="text-fantasy-silver text-xs mt-2">Forziere Starter — 50 Carte</p>
           </motion.div>
         )}
 
@@ -321,7 +321,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: displayCards.length * 0.15 + 0.5 }}
             >
-              +45 carte aggiunte alla collezione!
+              +50 carte aggiunte alla collezione!
             </motion.p>
           </div>
         )}
@@ -340,7 +340,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
                 Forziere Aperto!
               </h2>
               <p className="text-fantasy-silver text-sm mb-4">
-                45 carte sono state aggiunte alla tua collezione.
+                50 carte sono state aggiunte alla tua collezione.
               </p>
 
               {/* Preview grid of the shown cards */}
