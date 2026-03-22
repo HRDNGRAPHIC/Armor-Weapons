@@ -6,7 +6,7 @@ import { supabase } from './supabase';
 
 const K_FACTOR = 20;
 const DEFAULT_ELO = 100;
-const GOLD_PER_WIN = 5;
+export const GOLD_PER_WIN = 5;
 
 // AI ELO varies by "difficulty" — for now a fixed value
 const AI_ELO = 100;
@@ -53,7 +53,7 @@ export async function recordGameResult(userId, outcome, mode = 'pve') {
   // Fetch current profile
   const { data: profile, error: fetchErr } = await supabase
     .from('profiles')
-    .select('elo, gold, wins, losses')
+    .select('elo, wins, losses')
     .eq('id', userId)
     .single();
 
@@ -63,7 +63,6 @@ export async function recordGameResult(userId, outcome, mode = 'pve') {
   }
 
   const currentElo = profile.elo ?? DEFAULT_ELO;
-  const currentGold = profile.gold ?? 0;
   const currentWins = profile.wins ?? 0;
   const currentLosses = profile.losses ?? 0;
 
@@ -83,11 +82,8 @@ export async function recordGameResult(userId, outcome, mode = 'pve') {
     // PvP: Chess.com formula
     newElo = calculateNewElo(currentElo, AI_ELO, result);
   }
-  const goldEarned = outcome === 'win' ? GOLD_PER_WIN : 0;
-
   const updates = {
     elo: newElo,
-    gold: currentGold + goldEarned,
     wins: outcome === 'win' ? currentWins + 1 : currentWins,
     losses: (outcome === 'loss' || outcome === 'abandon') ? currentLosses + 1 : currentLosses,
     updated_at: new Date().toISOString(),

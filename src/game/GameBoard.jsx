@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { generateCard, generateEquipmentDeck, createDeck, getInitialState, getPixelSVG, pixelArtsKnights, pixelArtsWeapons, pixelArtsShields, pixelArtsItems, pixelArtsTerrains } from './data/gameData';
 import { playSound } from './data/gameAudio';
 import { useAuth } from '../context/AuthContext';
-import { recordGameResult } from '../services/elo';
+import { recordGameResult, GOLD_PER_WIN } from '../services/elo';
 import { CARD_CATALOG } from './data/cardCatalog';
 
 /*
@@ -35,8 +35,8 @@ function buildPlayerDeck(knightIds, cardIds) {
     const cat = CARD_CATALOG.find(c => c.catalogId === cid);
     if (!cat) return null;
     const base = { id: Math.random().toString(36).substr(2, 9), name: cat.name };
-    if (cat.type === 'weapon') return { ...base, type: 'arma', bonus: cat.atkBonus, cu: Math.max(1, cat.atkBonus - Math.floor(Math.random() * 2)), art: getPixelSVG(pixelArtsWeapons[0]) };
-    if (cat.type === 'shield') return { ...base, type: 'scudo', bonus: cat.defBonus, cu: Math.max(1, cat.defBonus - Math.floor(Math.random() * 2)), art: getPixelSVG(pixelArtsShields[0]) };
+    if (cat.type === 'weapon') return { ...base, type: 'arma', bonus: cat.atkBonus, cu: cat.cu ?? 1, art: getPixelSVG(pixelArtsWeapons[0]) };
+    if (cat.type === 'shield') return { ...base, type: 'scudo', bonus: cat.defBonus, cu: cat.cu ?? 1, art: getPixelSVG(pixelArtsShields[0]) };
     if (cat.type === 'item') return { ...base, type: 'oggetto', itemId: cat.itemId, cu: cat.cu, desc: cat.desc, art: getPixelSVG(pixelArtsItems[0]) };
     if (cat.type === 'terrain') return { ...base, type: 'terreno', itemId: cat.terrainId, cu: 0, desc: cat.desc, art: getPixelSVG(pixelArtsTerrains[0]) };
     return null;
@@ -56,7 +56,7 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 export default function GameBoard() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, refreshProfile } = useAuth();
+    const { user, refreshProfile, updateUserGold } = useAuth();
     const stateRef = useRef(getInitialState());
     const zoomOriginRef = useRef({ x: 0, y: 0 });
     const containerRef = useRef(null);
@@ -422,9 +422,10 @@ export default function GameBoard() {
             else if (message.includes('GIOCATORE 2 TRIONFA')) outcome = 'loss';
             const mode = location.state?.mode ?? 'pve';
             await recordGameResult(user.id, outcome, mode);
+            if (outcome === 'win') await updateUserGold(GOLD_PER_WIN);
             refreshProfile();
         }
-    }, [$, user, refreshProfile, syncReactState, location.state]);
+    }, [$, user, refreshProfile, updateUserGold, syncReactState, location.state]);
 
     // --- ABANDON GAME ---
     const abandonGame = useCallback(async () => {

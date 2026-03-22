@@ -100,8 +100,8 @@ function CardZoom({ card, owned, isNew, onClose, layoutId }) {
                 <span className="text-yellow-400">PA {card.basePa}</span>
               </>
             )}
-            {card.type === 'weapon' && <span className="text-red-400">+{card.atkBonus} ATK</span>}
-            {card.type === 'shield' && <span className="text-green-400">+{card.defBonus} DEF</span>}
+            {card.type === 'weapon' && <><span className="text-red-400">+{card.atkBonus} ATK</span><span className="text-yellow-400">CU {card.cu}</span></>}
+            {card.type === 'shield' && <><span className="text-green-400">+{card.defBonus} DEF</span><span className="text-yellow-400">CU {card.cu}</span></>}
             {(card.type === 'item' || card.type === 'terrain') && (
               <span className="text-fantasy-silver text-xs">{card.desc}</span>
             )}
@@ -241,8 +241,8 @@ export default function Collection() {
                     </div>
                     <div className="text-[8px] text-fantasy-silver">
                       {card.type === 'knight' && `ATK:${card.baseAtk} DEF:${card.baseDef} PA:${card.basePa}`}
-                      {card.type === 'weapon' && `+${card.atkBonus} ATK`}
-                      {card.type === 'shield' && `+${card.defBonus} DEF`}
+                      {card.type === 'weapon' && `+${card.atkBonus} ATK · CU ${card.cu}`}
+                      {card.type === 'shield' && `+${card.defBonus} DEF · CU ${card.cu}`}
                       {(card.type === 'item' || card.type === 'terrain') && card.desc}
                     </div>
                   </div>

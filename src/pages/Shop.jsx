@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import Navbar from '../components/layout/Navbar';
 import { useAuth } from '../context/AuthContext';
-import { upsertProfile } from '../services/profiles';
 import PackOpening from '../components/PackOpening';
 
 const PACKS = [
@@ -48,15 +47,14 @@ const PACKS = [
 ];
 
 export default function Shop() {
-  const { user, profile, gold, refreshProfile } = useAuth();
+  const { user, gold, refreshProfile, updateUserGold } = useAuth();
   const [openingPack, setOpeningPack] = useState(null);
   const [purchased, setPurchased] = useState(null); // pack id of just-purchased
 
   async function handleBuy(pack) {
     if (gold < pack.price || !user) return;
     try {
-      await upsertProfile(user.id, { gold: gold - pack.price });
-      await refreshProfile();
+      await updateUserGold(-pack.price);
       // Brief feedback before opening
       setPurchased(pack.id);
       setTimeout(() => {

@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
-/* ═══════════════════════════════════════════════════
-   ARMOR & WEAPONS — Global Theme (Dark Fantasy)
-   ═══════════════════════════════════════════════════ */
+/* ARMOR & WEAPONS — Temi Globali */
 
 @theme {
   --color-fantasy-dark: #0a0a0f;
@@ -28,6 +26,12 @@ body {
   padding: 0;
 }
 
+/* Global cursor-pointer for all interactive elements */
+a, button:not(:disabled), [role="button"], [onclick], select, label[for],
+input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="button"] {
+  cursor: pointer;
+}
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--color-fantasy-darker); }
 ::-webkit-scrollbar-thumb { background: var(--color-fantasy-border); border-radius: 4px; }
@@ -40,7 +44,7 @@ body {
   background-clip: text;
 }
 
-/* ═══════════════ Pack Opening Animations ═══════════════ */
+/* ═══════════════ Animazione dell'Apertura ═══════════════ */
 @keyframes pack-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 .animate-pack-float { animation: pack-float 2s ease-in-out infinite; }
 @keyframes pack-split-left { 0% { transform: translateX(0) rotate(0); opacity: 1; } 100% { transform: translateX(-120px) rotate(-15deg); opacity: 0; } }
@@ -50,9 +54,7 @@ body {
 @keyframes card-reveal { 0% { transform: scale(0.3) rotateY(180deg); opacity: 0; } 50% { transform: scale(1.1) rotateY(90deg); opacity: 0.8; } 100% { transform: scale(1) rotateY(0deg); opacity: 1; } }
 .animate-card-reveal { animation: card-reveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 
-/* ═══════════════════════════════════════════════════════════
-   CAVALIERI OSCURI — Game CSS (copia esatta da A&Wmobile.html)
-   ═══════════════════════════════════════════════════════════ */
+/* CAVALIERI OSCURI — Struttura del gioco */
 
 :root {
     --blood-red: #8a0303;
@@ -76,7 +78,7 @@ body {
     user-select: none;
 }
 
-/* Effetto Scanline CRT anni 80 */
+/* Effetto Scanline */
 .game-page::before {
     content: "";
     position: fixed;
@@ -95,7 +97,7 @@ body {
 
 .game-page * { border-radius: 0 !important; }
 
-/* Stile Carte Cavalieri 8-Bit (Desktop Base) */
+/* Stile carte cavalieri */
 .game-page .card {
     width: 220px; height: 320px;
     background: var(--dark-metal); border: 4px solid var(--blood-red);
@@ -161,7 +163,7 @@ body {
 .game-page .custom-scrollbar::-webkit-scrollbar-track { background: #111; border-left: 2px solid #333; }
 .game-page .custom-scrollbar::-webkit-scrollbar-thumb { background: #8a0303; border: 2px solid #111; }
 
-/* --- MEDIA QUERIES PER MOBILE (Smartphone) --- */
+/* --- MEDIA QUERIES PER Smartphone --- */
 @media (max-width: 768px) {
     .game-page .card { width: 110px; height: 160px; border-width: 2px; }
     .game-page .card-header { padding: 4px 2px; font-size: 0.35rem; border-bottom-width: 2px; line-height: 1.2; }
@@ -271,7 +273,7 @@ body {
 }
 .anim-shake-continuous { animation: shakeContinuous 0.2s infinite; }
 
-/* 2. Pioggia Divina */
+/* 2. Effetto Pioggia */
 .terrain-pioggia::after {
     content: ""; position: absolute; inset: 0;
     background: repeating-linear-gradient(15deg, transparent, transparent 10px, rgba(77, 255, 77, 0.4) 11px, rgba(77, 255, 77, 0.4) 12px);

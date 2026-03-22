@@ -186,8 +186,8 @@ function SwipeCardStack({ cards, onAllRevealed }) {
                   <span style={{ color: '#ffd700' }}>PA {currentCard.basePa}</span>
                 </div>
               )}
-              {currentCard.type === 'weapon' && <span style={{ color: '#ff4444' }}>+{currentCard.atkBonus} ATK</span>}
-              {currentCard.type === 'shield' && <span style={{ color: '#44ff44' }}>+{currentCard.defBonus} DEF</span>}
+              {currentCard.type === 'weapon' && <><span style={{ color: '#ff4444' }}>+{currentCard.atkBonus} ATK</span>{' '}<span style={{ color: '#ffd700' }}>CU {currentCard.cu}</span></>}
+              {currentCard.type === 'shield' && <><span style={{ color: '#44ff44' }}>+{currentCard.defBonus} DEF</span>{' '}<span style={{ color: '#ffd700' }}>CU {currentCard.cu}</span></>}
               {(currentCard.type === 'item' || currentCard.type === 'terrain') && (
                 <span style={{ color: '#ffd700' }}>{currentCard.desc}</span>
               )}

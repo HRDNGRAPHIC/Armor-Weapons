@@ -579,8 +579,8 @@ export default function DeckBuilder() {
                             <p className="text-[8px] mt-0.5" style={{ color: card.rarity?.color }}>{card.rarity?.label}</p>
                           </div>
                           <div className="text-[8px] text-fantasy-silver">
-                            {card.type === 'weapon' && `+${card.atkBonus} ATK`}
-                            {card.type === 'shield' && `+${card.defBonus} DEF`}
+                            {card.type === 'weapon' && `+${card.atkBonus} ATK · CU ${card.cu}`}
+                            {card.type === 'shield' && `+${card.defBonus} DEF · CU ${card.cu}`}
                             {(card.type === 'item' || card.type === 'terrain') && card.desc}
                           </div>
                         </div>
@@ -605,7 +605,7 @@ export default function DeckBuilder() {
             </div>
 
             {/* ═══ Right: Current Deck Summary ═══════ */}
-            <div className="space-y-4">
+            <div className="space-y-4 sticky top-24 h-fit">
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                 <h2 className="font-display font-semibold text-white text-lg mb-3">Il tuo Mazzo</h2>
 

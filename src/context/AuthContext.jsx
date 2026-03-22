@@ -10,6 +10,7 @@ const AuthContext = createContext({
   loading: false,
   profileLoading: false,
   refreshProfile: () => {},
+  updateUserGold: async () => {},
 });
 
 /**
@@ -50,9 +51,10 @@ export function AuthProvider({ children }) {
 
   // Guard: prevent signOut → onAuthStateChange → loadProfile infinite loop
   const signingOutRef = useRef(false);
+  const goldRef = useRef(0);
 
   const loadProfile = useCallback(async (u) => {
-    if (!u) { setProfile(null); setGold(0); setProfileLoading(false); return; }
+    if (!u) { setProfile(null); setGold(0); goldRef.current = 0; setProfileLoading(false); return; }
     setProfileLoading(true);
     try {
       const p = await ensureProfile(u);
@@ -65,12 +67,14 @@ export function AuthProvider({ children }) {
           setUser(null);
           setProfile(null);
           setGold(0);
+          goldRef.current = 0;
           signingOutRef.current = false;
         }
         return;
       }
       setProfile(p);
       setGold(p.gold ?? 0);
+      goldRef.current = p.gold ?? 0;
     } catch (err) {
       console.error('[Auth] loadProfile error:', err);
       setProfile(null);
@@ -100,7 +104,7 @@ export function AuthProvider({ children }) {
         (payload) => {
           const updated = payload.new;
           setProfile(prev => prev ? { ...prev, ...updated } : updated);
-          if (updated.gold !== undefined) setGold(updated.gold);
+          if (updated.gold !== undefined) { setGold(updated.gold); goldRef.current = updated.gold; }
         }
       )
       .subscribe();
@@ -155,8 +159,21 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, [loadProfile]);
 
+  const updateUserGold = useCallback(async (amountToAdd) => {
+    if (!user || !supabase) return;
+    const newGold = Math.max(0, goldRef.current + amountToAdd);
+    goldRef.current = newGold;
+    setGold(newGold);
+    setProfile(prev => prev ? { ...prev, gold: newGold } : prev);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ gold: newGold, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
+    if (error) console.error('[Auth] updateUserGold error:', error);
+  }, [user]);
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, gold, loading, profileLoading, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, gold, loading, profileLoading, refreshProfile, updateUserGold }}>
       {children}
     </AuthContext.Provider>
   );

@@ -95,13 +95,12 @@ function HeraldicBadge({ tier }) {
 }
 
 export default function Lobby() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, gold, refreshProfile } = useAuth();
   const [pendingPacks, setPendingPacks] = useState([]);
   const [openingPack, setOpeningPack] = useState(null);
   const [showStarterChest, setShowStarterChest] = useState(false);
 
   const level   = profile?.level  ?? 1;
-  const coins   = profile?.coins  ?? 0;
   const wins    = profile?.wins   ?? 0;
   const losses  = profile?.losses ?? 0;
   const elo     = profile?.elo    ?? 100;
@@ -197,7 +196,7 @@ export default function Lobby() {
                   </div>
                   <div>
                     <span className="text-fantasy-silver text-xs">Monete</span>
-                    <p className="text-fantasy-gold font-bold text-lg">🪙 {coins}</p>
+                    <p className="text-fantasy-gold font-bold text-lg">🪙 {gold}</p>
                   </div>
                 </div>
               </div>
