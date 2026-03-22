@@ -278,7 +278,7 @@ export default function Lobby() {
       <AnimatePresence>
         {openingPack && (
           <PackOpening
-            packType={openingPack.pack_type ?? 'standard'}
+            packTier={openingPack.pack_type ?? 'standard'}
             packId={openingPack.id}
             onClose={handlePackClosed}
             onCardsAdded={() => {}}

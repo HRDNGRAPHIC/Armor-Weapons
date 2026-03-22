@@ -15,9 +15,13 @@ import Collection from './pages/Collection';
 import Shop from './pages/Shop';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
+import Map from './pages/Map';
 
 // Game
 import GameBoard from './game/GameBoard';
+
+// Dev Sandbox (hidden route — no navbar link)
+import DevSandbox from './pages/DevSandbox/DevSandbox';
 
 export default function App() {
   return (
@@ -96,6 +100,24 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/map"
+        element={
+          <ProtectedRoute>
+            <Map />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ── Dev Sandbox (hidden) ────────────── */}
+      <Route
+        path="/dev-game"
+        element={
+          <ProtectedRoute>
+            <DevSandbox />
           </ProtectedRoute>
         }
       />

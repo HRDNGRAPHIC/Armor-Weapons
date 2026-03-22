@@ -458,6 +458,148 @@ CREATE TRIGGER check_user_deck_limit
 2. Nel frontend (Shop o Navbar), il valore gold si aggiorna **istantaneamente** senza refresh
 3. Prova a salvare più di 5 mazzi → il frontend blocca il salvataggio con un messaggio di errore
 4. Nel Deck Builder, il tasto destro su una carta nel mazzo rimuove 1 copia
+
+---
+
+## 🪙 STEP 10 — Gold Iniziale Basato sul Tier di Abbonamento
+
+### Obiettivo
+
+Ogni nuovo account deve ricevere un quantitativo di monete iniziale proporzionale al tier di
+abbonamento. Il sistema deve avere un **fallback sicuro** a 100 monete se il tier non è
+specificato o non riconosciuto — nessun utente deve mai partire con 0 monete.
+
+| Tier | Gold iniziale |
+|------|--------------|
+| base / 1 (default) | 100 |
+| 2 | 400 |
+| 3 | 600 |
+| non specificato / errore | 100 (fallback) |
+
+### 10.1 — Funzione + Trigger `handle_new_user`
+
+Questa funzione legge il tier dai metadati dell'utente (`raw_user_meta_data`) e crea la riga
+in `public.profiles` con il gold corretto. Usa `ON CONFLICT (id) DO NOTHING` per essere
+idempotente (sicura da eseguire più volte).
+
+```sql
+-- ══════════════════════════════════════════════════════════
+-- STEP 10: Creazione profilo con Gold basato sul Tier
+-- Legge raw_user_meta_data->>'tier' per assegnare le monete
+-- iniziali. Fallback sicuro a 100 se il tier manca o è errato.
+-- ══════════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_tier text;
+  v_gold integer;
+BEGIN
+  -- Leggi il tier dai metadati opzionali dell'utente.
+  -- I valori attesi sono '1', '2', '3' o 'base'.
+  v_tier := COALESCE(NEW.raw_user_meta_data->>'tier', 'base');
+
+  -- Assegna le monete iniziali in base al tier.
+  -- CASE senza corrispondenza → fallback ELSE = 100 (mai 0).
+  v_gold := CASE v_tier
+    WHEN '1'    THEN 100
+    WHEN 'base' THEN 100
+    WHEN '2'    THEN 400
+    WHEN '3'    THEN 600
+    ELSE             100
+  END;
+
+  -- Crea il profilo. ON CONFLICT è necessario se un trigger
+  -- analogo esiste già (es. dal setup auth precedente).
+  INSERT INTO public.profiles (
+    id,
+    username,
+    avatar_url,
+    gold,
+    elo,
+    wins,
+    losses,
+    starter_claimed
+  )
+  VALUES (
+    NEW.id,
+    COALESCE(
+      NEW.raw_user_meta_data->>'username',
+      split_part(NEW.email, '@', 1)
+    ),
+    NEW.raw_user_meta_data->>'avatar_url',
+    v_gold,
+    100,    -- ELO base
+    0,
+    0,
+    false
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET gold = EXCLUDED.gold
+    WHERE profiles.gold = 0;  -- aggiorna solo se ancora a 0
+
+  RETURN NEW;
+END;
+$$;
+
+-- Attiva il trigger su ogni nuovo utente registrato.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+```
+
+> **Nota sulla sicurezza**: la funzione usa `SECURITY DEFINER` per poter scrivere su
+> `public.profiles` bypassando RLS. È necessario che la funzione sia definita dal ruolo
+> `postgres` (il proprietario delle tabelle) — cosa che avviene automaticamente nell'SQL
+> Editor di Supabase.
+
+### 10.2 — Aggiornare utenti esistenti con 0 monete
+
+Se ci sono utenti già registrati che hanno `gold = 0` e dovrebbero avere il valore del loro
+tier, puoi aggiornarli manualmente:
+
+```sql
+-- Aggiorna in modo sicuro SOLO gli utenti che hanno ancora 0 monete.
+-- Usare il Table Editor per verificare il tier di ciascun utente e
+-- impostare il gold manualmente, oppure passare lo script qui sotto.
+
+-- Esempio: imposta 400 monete all'utente con un ID specifico
+UPDATE public.profiles
+SET gold = 400
+WHERE id = 'INSERISCI_UUID_UTENTE'
+  AND gold = 0;
+```
+
+### 10.3 — Come passare il tier alla registrazione (frontend)
+
+Per far sì che il trigger riceva il tier corretto, passalo nei metadati alla registrazione:
+
+```js
+// Esempio in auth.js (Supabase JS SDK v2)
+await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    data: {
+      username: displayName,
+      tier: '2',  // '1', '2', o '3' — ometti per il default base (100 monete)
+    },
+  },
+});
+```
+
+### 10.4 — Verifica
+
+1. Crea un nuovo account **senza** specificare il tier → il profilo deve avere `gold = 100`
+2. Crea un account con `tier: '2'` nei metadati → il profilo deve avere `gold = 400`
+3. Crea un account con `tier: '3'` → il profilo deve avere `gold = 600`
+4. Verifica nel **Table Editor** → `public.profiles` → colonna `gold`
+5. Accedi con ogni account e controlla il saldo oro nella Navbar dello Shop
 5. Il tasto sinistro su una carta con 1 copia disponibile la aggiunge immediatamente (no pop-up)
 6. Il tasto sinistro su una carta con più copie apre lo slider di selezione quantità
 7. Il tasto "Genera Mazzo Casuale" è disabilitato se le carte possedute sono insufficienti

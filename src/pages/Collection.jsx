@@ -172,51 +172,91 @@ export default function Collection() {
     });
   }, [selectedTypes, selectedRarities, search]);
 
-  const totalOwned = Object.values(owned).reduce((s, q) => s + q, 0);
   const uniqueOwned = Object.keys(owned).length;
+
+  const rarityStats = useMemo(() => RARITIES.map(r => ({
+    id: r.id,
+    label: r.label,
+    color: r.color,
+    total: CARD_CATALOG.filter(c => c.rarity?.id === r.id).length,
+    unique: CARD_CATALOG.filter(c => c.rarity?.id === r.id && (owned[c.catalogId] ?? 0) > 0).length,
+  })), [owned]);
 
   return (
     <div className="min-h-screen bg-fantasy-darker">
       <Navbar />
       <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="font-display font-bold text-3xl text-white">
-              La tua <span className="text-gold-gradient">Collezione</span>
-            </h1>
-          </div>
+          <h1 className="font-display font-bold text-3xl text-white mb-1">
+            La tua <span className="text-gold-gradient">Collezione</span>
+          </h1>
           <p className="text-fantasy-silver text-sm mb-6">
             Esplora tutte le carte. Clicca per ingrandirle.
           </p>
 
-          <div className="flex flex-wrap gap-3 mb-6 text-[11px]">
-            <span className="px-3 py-1.5 bg-fantasy-card border border-fantasy-border rounded-lg text-fantasy-silver">
-              📦 {uniqueOwned}/{CARD_CATALOG.length} carte uniche
-            </span>
-            <span className="px-3 py-1.5 bg-fantasy-card border border-fantasy-border rounded-lg text-fantasy-silver">
-              🃏 {totalOwned} carte totali
-            </span>
-          </div>
+          <div className="flex gap-6">
+            {/* ── Sidebar (large screens) ── */}
+            <aside className="hidden lg:block w-52 flex-shrink-0">
+              <div className="sticky top-24 rounded-xl border border-fantasy-gold/20 bg-fantasy-card p-4">
+                <h2 className="font-display font-bold text-fantasy-gold text-[11px] uppercase tracking-widest mb-4">
+                  Progresso
+                </h2>
+                <div className="space-y-2.5">
+                  {rarityStats.map(r => (
+                    <div key={r.id} className="flex items-center justify-between">
+                      <span className="text-xs font-display" style={{ color: r.color }}>{r.label}</span>
+                      <span className="text-xs font-mono text-fantasy-silver">
+                        <span style={{ color: r.color }}>{r.unique}</span>
+                        <span className="opacity-30 mx-0.5">/</span>
+                        {r.total}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 pt-3 border-t border-fantasy-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-display text-white uppercase tracking-wide">Totale</span>
+                    <span className="text-xs font-mono">
+                      <span className="text-fantasy-gold">{uniqueOwned}</span>
+                      <span className="opacity-30 mx-0.5">/</span>
+                      <span className="text-fantasy-silver">{CARD_CATALOG.length}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </aside>
 
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cerca carta…"
-              className="flex-1 px-3 py-2 bg-fantasy-card border border-fantasy-border rounded-lg text-white text-sm placeholder:text-fantasy-silver/50 focus:outline-none focus:border-fantasy-gold transition"
-            />
-            <SmartFilter
-              typeOptions={TYPE_LABELS_IT}
-              rarityOptions={RARITIES}
-              selectedTypes={selectedTypes}
-              selectedRarities={selectedRarities}
-              onChange={(types, rarities) => { setSelectedTypes(types); setSelectedRarities(rarities); }}
-            />
-          </div>
+            {/* ── Main content ── */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Cerca carta…"
+                  className="flex-1 px-3 py-2 bg-fantasy-card border border-fantasy-border rounded-lg text-white text-sm placeholder:text-fantasy-silver/50 focus:outline-none focus:border-fantasy-gold transition"
+                />
+                <SmartFilter
+                  typeOptions={TYPE_LABELS_IT}
+                  rarityOptions={RARITIES}
+                  selectedTypes={selectedTypes}
+                  selectedRarities={selectedRarities}
+                  onChange={(types, rarities) => { setSelectedTypes(types); setSelectedRarities(rarities); }}
+                />
+              </div>
 
-          {/* Card grid */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+              {/* Mobile stats — compact row, hidden on lg+ */}
+              <div className="flex flex-wrap gap-2 mb-4 lg:hidden">
+                {rarityStats.map(r => (
+                  <span key={r.id} className="px-2 py-1 bg-fantasy-card border border-fantasy-border rounded-lg text-[10px] font-display"
+                    style={{ color: r.color }}>
+                    {r.label}: {r.unique}/{r.total}
+                  </span>
+                ))}
+              </div>
+
+              {/* Card grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {filteredCards.map(card => {
               const qty = owned[card.catalogId] ?? 0;
               const isNew = qty > 0 && newCards.has(card.catalogId);
@@ -272,6 +312,8 @@ export default function Collection() {
               Nessuna carta trovata.
             </p>
           )}
+            </div>{/* end flex-1 min-w-0 */}
+          </div>{/* end flex gap-6 */}
         </div>
       </div>
 

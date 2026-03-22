@@ -6,7 +6,7 @@
  */
 import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CARD_CATALOG, rollRarity, RARITIES } from '../game/data/cardCatalog';
+import { CARD_CATALOG, RARITIES } from '../game/data/cardCatalog';
 import { playMedievalSound } from '../game/data/medievalAudio';
 import { addCardsToCollection } from '../services/collection';
 import { redeemPack } from '../services/packs';
@@ -70,21 +70,51 @@ const TYPE_ICONS = {
   knight: '⚔️', weapon: '🗡️', shield: '🛡️', item: '🧪', terrain: '🌍',
 };
 
-/* ── Roll cards for a pack ────────────────────────── */
-function rollCards(count = 5, guaranteedMinRarity = null) {
+/* ── Drop Rate Algorithm ──────────────────────────
+ * Standard: 90% Comune, 7% Rara, 2% Epica, 1% Leggendaria (= 100%)
+ * Premium:  80% Rara, 15% Epica, 5% Leggendaria (no comuni, = 100%)
+ * ───────────────────────────────────────────────── */
+const STANDARD_RATES = [
+  { id: 'comune',      threshold: 90 },  // 0-89.999 → comune (90%)
+  { id: 'rara',        threshold: 97 },  // 90-96.999 → rara (7%)
+  { id: 'epica',       threshold: 99 },  // 97-98.999 → epica (2%)
+  { id: 'leggendaria', threshold: 100 }, // 99-99.999 → leggendaria (1%)
+];
+
+const PREMIUM_RATES = [
+  { id: 'rara',        threshold: 80 },  // 0-79.999 → rara (80%)
+  { id: 'epica',       threshold: 95 },  // 80-94.999 → epica (15%)
+  { id: 'leggendaria', threshold: 100 }, // 95-99.999 → leggendaria (5%)
+];
+
+function rollRarityFromTable(rates) {
+  const r = Math.random() * 100;
+  for (const entry of rates) {
+    if (r < entry.threshold) return RARITIES.find(rv => rv.id === entry.id);
+  }
+  return RARITIES.find(rv => rv.id === rates[rates.length - 1].id);
+}
+
+/**
+ * Generate a pack of 5 cards.
+ * @param {'standard'|'premium'} tier — standard uses all rarities, premium excludes comuni
+ * @param {string|null} typeFilter — 'knight','weapon','shield','item','terrain' or null for mix
+ */
+function generatePack(tier, typeFilter) {
+  const rates = tier === 'premium' ? PREMIUM_RATES : STANDARD_RATES;
+  const pool = typeFilter
+    ? CARD_CATALOG.filter(c => c.type === typeFilter)
+    : CARD_CATALOG;
+
   const cards = [];
-  for (let i = 0; i < count; i++) {
-    let rarity = rollRarity();
-    if (guaranteedMinRarity && i === 0) {
-      const minIdx = RARITIES.findIndex(r => r.id === guaranteedMinRarity);
-      const eligible = RARITIES.filter((_, idx) => idx >= minIdx);
-      rarity = eligible[Math.floor(Math.random() * eligible.length)];
-    }
-    const pool = CARD_CATALOG.filter(c => c.rarity.id === rarity.id);
-    const card = pool.length > 0
-      ? pool[Math.floor(Math.random() * pool.length)]
-      : CARD_CATALOG[Math.floor(Math.random() * CARD_CATALOG.length)];
-    cards.push({ ...card, rarity });
+  for (let i = 0; i < 5; i++) {
+    const rarity = rollRarityFromTable(rates);
+    const eligible = pool.filter(c => c.rarity.id === rarity.id);
+    // Fallback: if no cards of that rarity exist for this type, pick any from pool
+    const pick = eligible.length > 0
+      ? eligible[Math.floor(Math.random() * eligible.length)]
+      : pool[Math.floor(Math.random() * pool.length)];
+    cards.push({ ...pick, rarity: pick.rarity });
   }
   return cards;
 }
@@ -226,7 +256,7 @@ function SwipeCardStack({ cards, onAllRevealed }) {
 }
 
 /* ═══════════ Main PackOpening Component ═══════════ */
-export default function PackOpening({ packType = 'standard', packId = null, onClose, onCardsAdded }) {
+export default function PackOpening({ packTier = 'standard', typeFilter = null, packId = null, onClose, onCardsAdded }) {
   const { user } = useAuth();
   const [phase, setPhase] = useState('sealed'); // sealed | cutting | reveal | done
   const [cards, setCards] = useState([]);
@@ -236,8 +266,7 @@ export default function PackOpening({ packType = 'standard', packId = null, onCl
     playMedievalSound('packOpen');
     setPhase('cutting');
 
-    const guaranteedMin = packType === 'premium' ? 'epica' : null;
-    const rolled = rollCards(5, guaranteedMin);
+    const rolled = generatePack(packTier, typeFilter);
     setCards(rolled);
 
     setTimeout(() => {
@@ -245,7 +274,7 @@ export default function PackOpening({ packType = 'standard', packId = null, onCl
       setPhase('reveal');
       setTimeout(() => playMedievalSound('cardReveal'), 400);
     }, 1400);
-  }, [packType]);
+  }, [packTier, typeFilter]);
 
   const onAllRevealed = useCallback(() => {
     playMedievalSound('armor');
@@ -306,7 +335,7 @@ export default function PackOpening({ packType = 'standard', packId = null, onCl
                 <div className="text-center mt-10">
                   <span className="text-5xl block mb-3">🃏</span>
                   <p className="font-display font-bold text-sm" style={{ color: '#c9a84c' }}>
-                    {packType === 'premium' ? 'Pack Premium' : 'Pack Standard'}
+                    {packTier === 'premium' ? 'Pack Premium' : 'Pack Standard'}
                   </p>
                   <p className="text-[10px] text-gray-500 mt-1">5 carte</p>
                 </div>

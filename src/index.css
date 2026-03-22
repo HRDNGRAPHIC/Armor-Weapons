@@ -44,6 +44,84 @@ input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="b
   background-clip: text;
 }
 
+/* ═══════════════ Shop — UIverse Card Style ═══════════════ */
+.shop-card {
+  position: relative;
+  border-radius: 1rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.shop-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 15px 40px rgba(201,168,76,0.15);
+}
+.shop-card-inner {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #12121A;
+  border: 1px solid rgba(201,168,76,0.3);
+  transition: border-color 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.shop-card:hover .shop-card-inner {
+  border-color: var(--color-fantasy-gold);
+}
+.shop-card-content {
+  position: relative;
+  z-index: 2;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.shop-card-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  background: radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.12) 0%, transparent 70%);
+}
+.shop-card:hover .shop-card-glow { opacity: 1; }
+.shop-card-glow-premium {
+  background: radial-gradient(ellipse at 50% 0%, rgba(139,95,191,0.15) 0%, transparent 70%);
+}
+.shop-card-glow-coin {
+  background: radial-gradient(ellipse at 50% 0%, rgba(42,138,58,0.12) 0%, transparent 70%);
+}
+
+/* ═══════════════ Shop — Animated Separator ═══════════════ */
+@keyframes shop-glow-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.shop-separator-glow {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 33%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), rgba(201,168,76,0.9), rgba(255,255,255,0.7), transparent);
+  animation: shop-glow-sweep 3s ease-in-out infinite;
+  border-radius: 2px;
+}
+/* Right-side separator: beam travels right → left */
+.shop-separator-glow-reverse {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 33%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), rgba(201,168,76,0.9), rgba(255,255,255,0.7), transparent);
+  animation: shop-glow-sweep 3s ease-in-out infinite;
+  animation-direction: reverse;
+  border-radius: 2px;
+}
+
 /* ═══════════════ Animazione dell'Apertura ═══════════════ */
 @keyframes pack-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 .animate-pack-float { animation: pack-float 2s ease-in-out infinite; }

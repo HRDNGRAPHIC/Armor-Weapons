@@ -113,7 +113,7 @@ function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
 
           {/* Confirm */}
           <button
-            onClick={() => { playMedievalSound('armor'); onConfirm(qty); }}
+            onClick={() => { onConfirm(qty); }}
             className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wider transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
             style={{
               background: `linear-gradient(135deg, ${borderColor}, ${borderColor}bb)`,
@@ -299,7 +299,7 @@ export default function DeckBuilder() {
     } else {
       setDeckCards(prev => [...prev, ...copies]);
     }
-    playMedievalSound('armor');
+    playMedievalSound('click');
     setQtyPopup(null);
   }
 
@@ -371,7 +371,6 @@ export default function DeckBuilder() {
 
     setKnights(tempKnights);
     setDeckCards(tempDeck);
-    playMedievalSound('armor');
   }
 
   async function handleSave() {

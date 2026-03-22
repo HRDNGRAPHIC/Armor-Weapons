@@ -60,7 +60,7 @@ export default function SmartFilter({
             : 'border-fantasy-border text-fantasy-silver hover:text-white hover:bg-white/5'
           }`}
       >
-        🔍 Filtri{activeCount > 0 && ` (${activeCount})`}
+        Filtri{activeCount > 0 && ` (${activeCount})`}
       </button>
 
       {open && (
