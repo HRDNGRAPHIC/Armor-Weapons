@@ -1,0 +1,326 @@
+/**
+ * GameBoard3D.jsx — Orthographic top-down game board.
+ *
+ * Static camera, no perspective distortion, no auto-scaling.
+ * The gameboard image has its own drawn perspective — the 3D camera
+ * simply looks straight down so the image is never warped.
+ *
+ * Draw mechanic: click P1's main deck → 3 cards fly out with staggered
+ * animation (lift + flip + fan landing).
+ */
+import { useMemo, useRef, useEffect, Suspense, useState, useCallback } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrthographicCamera, useTexture } from '@react-three/drei';
+import { gsap } from 'gsap';
+import * as THREE from 'three';
+import Card3D from './Card3D';
+import boardImg from '../../assets/gameboard_test.png';
+
+/* ═══════════════════════════════════════════════════════════════════
+   LAYOUT CONSTANTS — Edit these values to reposition elements.
+
+   Coordinate system (camera looks straight down from +Y):
+     +X → right on screen        -X → left on screen
+     +Z → bottom of screen (P1)  -Z → top of screen (P2)
+     +Y → height above table
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Table ── */
+const TABLE_W     = 16;                          // world-units width
+const TABLE_H     = TABLE_W / (3615 / 2018);     // ≈ 8.93 (matches image 3615×2018)
+
+/* ── Camera ── */
+const CAM_HEIGHT  = 10;                           // Y position above table
+const CAM_ZOOM    = 100;                           // pixels-per-unit  (lower → see more)
+
+/* ── Main Weapon Decks (45 cards — LEFT side, horizontal) ── */
+const P1_DECK     = [-5.9, 0.05,  0.6];          // Player 1 (bottom-left)
+const P2_DECK     = [-5.0, 0.05, -1.0];          // Player 2 (top-left)
+const DECK_H_ROT  = [-Math.PI / 2, 0, Math.PI / 2]; // Laid horizontal on table
+
+/* ── Knight Decks (5 cards — RIGHT side, vertical) ── */
+const P1_KDECK    = [5.5, 0.05,  1.0];           // Player 1 (bottom-right)
+const P2_KDECK    = [5.5, 0.05, -1.0];           // Player 2 (top-right)
+const DECK_V_ROT  = [-Math.PI / 2, 0, 0];        // Upright on table
+
+/* ── Active Knights (center of board) ── */
+const P1_KNIGHT   = [2.0, 0.05,  1.0];
+const P2_KNIGHT   = [2.0, 0.05, -1.0];
+
+/* ── Clash Zone Ring ── */
+const CLASH_POS   = [2.0, 0.003, 0];
+const CLASH_R_IN  = 0.5;
+const CLASH_R_OUT = 0.6;
+
+/* ── Player Hand (drawn cards destination) ── */
+const HAND_Y      = 0.10;                        // slight lift above table
+const HAND_Z      = 3.2;                         // Z = bottom of view (P1 side)
+const HAND_SPREAD = 1.2;                         // X spacing between cards
+const HAND_FAN    = 0.06;                        // Z-rotation per offset unit
+
+/* ── Draw Animation ── */
+const DRAW_COUNT  = 3;                            // cards per draw
+const DRAW_SPEED  = 0.5;                          // seconds per card flight
+const DRAW_DELAY  = 0.3;                          // stagger between each card (s)
+const DRAW_LIFT   = 1.5;                          // peak Y height during arc
+const DRAW_FLIP   = true;                         // enable scale-X flip effect
+
+/* ── Sample Cards (for draw testing) ── */
+const SAMPLE_DRAW = [
+  { name: 'Spada Lunga',    type: 'arma',  bonus: 3 },
+  { name: 'Scudo di Ferro', type: 'scudo', bonus: 2 },
+  { name: 'Ascia Bipenne',  type: 'arma',  bonus: 5 },
+];
+
+
+/* ═══════════════════════════════════════════
+   COMPONENTS
+   ═══════════════════════════════════════════ */
+
+/* ── Table (textured plane — fixed aspect, never stretched) ── */
+function Table() {
+  const texture = useTexture(boardImg);
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
+      <planeGeometry args={[TABLE_W, TABLE_H]} />
+      <meshStandardMaterial map={texture} roughness={0.85} metalness={0.05} />
+    </mesh>
+  );
+}
+
+/* ── Deck Stack ── */
+function DeckStack({ position, count, label, cardRotation = DECK_V_ROT, onClick }) {
+  const layers = Math.min(count, 8);
+  const cards = useMemo(() =>
+    Array.from({ length: layers }, (_, i) => ({
+      key: i,
+      pos: [position[0], position[1] + i * 0.025, position[2]],
+    })), [position[0], position[1], position[2], count]);
+
+  return (
+    <group
+      onClick={onClick}
+      onPointerOver={onClick ? () => { document.body.style.cursor = 'pointer'; } : undefined}
+      onPointerOut={onClick ? () => { document.body.style.cursor = 'default'; } : undefined}
+    >
+      {cards.map(c => (
+        <Card3D key={c.key} position={c.pos} rotation={cardRotation}
+                type="back" faceDown />
+      ))}
+      {count > 0 && (
+        <Card3D
+          position={[position[0], position[1] + layers * 0.025 + 0.01, position[2]]}
+          rotation={cardRotation} type="deck" name={`${count}`}
+        />
+      )}
+    </group>
+  );
+}
+
+/* ── Knight Slot ── */
+function KnightSlot({ card, position }) {
+  if (!card) {
+    return (
+      <mesh position={position} rotation={DECK_V_ROT}>
+        <boxGeometry args={[0.74, 1.04, 0.005]} />
+        <meshStandardMaterial color="#0a0a0a" transparent opacity={0.25} />
+      </mesh>
+    );
+  }
+  return (
+    <Card3D position={position} rotation={DECK_V_ROT} type="knight"
+            name={card.name} atk={card.atk} def={card.def} pa={card.pa} scale={1.2} />
+  );
+}
+
+/* ── Drawing Card (GSAP timeline: deck → arc → flip → hand) ── */
+function DrawingCard({ card, index, totalCards }) {
+  const groupRef  = useRef();
+  const [revealed, setRevealed] = useState(false);
+
+  /* Target hand position for this card */
+  const offset   = index - (totalCards - 1) / 2;
+  const targetX  = offset * HAND_SPREAD;
+  const targetZ  = HAND_Z;
+  const targetRZ = -offset * HAND_FAN;
+  const delay    = index * DRAW_DELAY;
+
+  useEffect(() => {
+    const g = groupRef.current;
+    if (!g) return;
+
+    /* Set start state */
+    g.position.set(...P1_DECK);
+    g.rotation.set(...DECK_H_ROT);
+    g.scale.set(1, 1, 1);
+    g.visible = true;
+
+    const data = { scaleX: 1 }; // proxy for scale.x flip
+
+    const tl = gsap.timeline({ delay });
+
+    /* Phase 1: lift into arc */
+    tl.to(g.position, {
+      x: (P1_DECK[0] + targetX) / 2,
+      y: P1_DECK[1] + DRAW_LIFT,
+      z: (P1_DECK[2] + targetZ) / 2,
+      duration: DRAW_SPEED * 0.5,
+      ease: 'power2.out',
+    });
+
+    /* Phase 1b: start flip (squish to zero) */
+    if (DRAW_FLIP) {
+      tl.to(data, {
+        scaleX: 0.02,
+        duration: DRAW_SPEED * 0.3,
+        ease: 'power1.in',
+        onUpdate: () => g.scale.setX(data.scaleX),
+      }, '<');
+    }
+
+    /* Phase 2: reveal at midpoint */
+    tl.add(() => setRevealed(true));
+
+    /* Phase 2b: unflip */
+    if (DRAW_FLIP) {
+      tl.to(data, {
+        scaleX: 1,
+        duration: DRAW_SPEED * 0.3,
+        ease: 'power1.out',
+        onUpdate: () => g.scale.setX(data.scaleX),
+      });
+    }
+
+    /* Phase 3: settle into hand */
+    tl.to(g.position, {
+      x: targetX,
+      y: HAND_Y,
+      z: targetZ,
+      duration: DRAW_SPEED * 0.5,
+      ease: 'power2.inOut',
+    }, DRAW_FLIP ? '<0.1' : '<');
+
+    tl.to(g.rotation, {
+      z: targetRZ,
+      duration: DRAW_SPEED * 0.5,
+      ease: 'power2.inOut',
+    }, '<');
+
+    return () => { tl.kill(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, totalCards]);
+
+  return (
+    <group ref={groupRef} visible rotation={[...DECK_H_ROT]}>
+      <Card3D
+        faceDown={!revealed}
+        type={revealed ? (card?.type || 'arma') : 'back'}
+        name={revealed ? (card?.name || '?') : ''}
+        bonus={revealed ? card?.bonus : undefined}
+      />
+    </group>
+  );
+}
+
+
+/* ═══════════════════════════════════════════
+   MAIN SCENE
+   ═══════════════════════════════════════════ */
+function Scene({ gameState }) {
+  const p1 = gameState?.p1;
+  const p2 = gameState?.p2;
+
+  /* ── Draw state ── */
+  const [drawnCards, setDrawnCards] = useState(null);
+
+  const handleDraw = useCallback(() => {
+    if (drawnCards) return;                        // already drawn
+    setDrawnCards(SAMPLE_DRAW.slice(0, DRAW_COUNT));
+  }, [drawnCards]);
+
+  return (
+    <>
+      {/* ── Camera: static orthographic top-down ── */}
+      <OrthographicCamera
+        makeDefault
+        position={[0, CAM_HEIGHT, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        zoom={CAM_ZOOM}
+        near={0.1}
+        far={100}
+      />
+
+      {/* ── Lighting ── */}
+      <ambientLight intensity={0.18} color="#332244" />
+      <directionalLight
+        position={[4, 10, 3]} intensity={1.6} color="#ffeedd"
+        castShadow
+        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+        shadow-camera-near={0.5} shadow-camera-far={30}
+        shadow-camera-left={-10} shadow-camera-right={10}
+        shadow-camera-top={8} shadow-camera-bottom={-8}
+        shadow-bias={-0.0005}
+      />
+      <pointLight position={[-6, 4, -4]} intensity={0.35} color="#8a0303" />
+      <pointLight position={[6, 3, -3]}  intensity={0.25} color="#4400aa" />
+
+      {/* ── Table ── */}
+      <Table />
+
+      {/* ── Main Weapon Decks (LEFT, horizontal) ── */}
+      <DeckStack
+        position={P1_DECK} count={p1?.weaponsLeft ?? 45}
+        label={`${p1?.weaponsLeft ?? 45}`}
+        cardRotation={DECK_H_ROT}
+        onClick={handleDraw}
+      />
+      <DeckStack
+        position={P2_DECK} count={p2?.weaponsLeft ?? 45}
+        label={`${p2?.weaponsLeft ?? 45}`}
+        cardRotation={DECK_H_ROT}
+      />
+
+      {/* ── Knight Decks (RIGHT, vertical) ── */}
+      <DeckStack position={P1_KDECK} count={p1?.cardsLeft ?? 5} label={`${p1?.cardsLeft ?? 5}/5`} />
+      <DeckStack position={P2_KDECK} count={p2?.cardsLeft ?? 5} label={`${p2?.cardsLeft ?? 5}/5`} />
+
+      {/* ── Active Knights (CENTER) ── */}
+      <KnightSlot card={p1?.activeCard} position={P1_KNIGHT} />
+      <KnightSlot card={p2?.activeCard} position={P2_KNIGHT} />
+
+      {/* ── Clash Zone ── */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={CLASH_POS}>
+        <ringGeometry args={[CLASH_R_IN, CLASH_R_OUT, 32]} />
+        <meshStandardMaterial
+          color="#8a0303" emissive="#8a0303" emissiveIntensity={0.5}
+          transparent opacity={0.45} side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* ── Drawn Cards (animated deck → hand fan) ── */}
+      {drawnCards && drawnCards.map((card, i) => (
+        <DrawingCard
+          key={`draw-${card.name}`}
+          card={card} index={i} totalCards={drawnCards.length}
+        />
+      ))}
+    </>
+  );
+}
+
+
+/* ─── Exported Canvas wrapper ─── */
+export default function GameBoard3D({ gameState }) {
+  return (
+    <Canvas
+      frameloop="always"
+      shadows
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.85 }}
+      style={{ width: '100%', height: '100%', background: '#050505' }}
+    >
+      <Suspense fallback={null}>
+        <Scene gameState={gameState} />
+      </Suspense>
+    </Canvas>
+  );
+}

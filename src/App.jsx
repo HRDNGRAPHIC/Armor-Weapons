@@ -1,4 +1,5 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages — Pubbliche
@@ -20,8 +21,19 @@ import Map from './pages/Map';
 // Game
 import GameBoard from './game/GameBoard';
 
-// Dev Sandbox (hidden route — no navbar link)
-import DevSandbox from './pages/DevSandbox/DevSandbox';
+// Dev Sandbox — lazy: la pipeline 3D (R3F + Three.js + GSAP) non si carica al boot
+const DevSandbox = lazy(() => import('./pages/DevSandbox/DevSandbox'));
+
+/* Loader generico per i lazy chunk */
+function PageLoader() {
+  return (
+    <div style={{ minHeight: '100vh', background: '#060609', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: '#c9a84c', fontFamily: 'Cinzel, serif', letterSpacing: '0.2em' }}>
+        Caricamento…
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -117,7 +129,9 @@ export default function App() {
         path="/dev-game"
         element={
           <ProtectedRoute>
-            <DevSandbox />
+            <Suspense fallback={<PageLoader />}>
+              <DevSandbox />
+            </Suspense>
           </ProtectedRoute>
         }
       />

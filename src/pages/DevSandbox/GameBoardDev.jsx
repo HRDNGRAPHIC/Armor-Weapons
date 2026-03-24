@@ -83,7 +83,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
                 weaponsLeft: s.p1.weaponsLeft,
                 buffs: s.p1.buffs.map(b => ({ id: b.id, turns: b.turns })),
                 hasDrawnWeapon: s.p1.hasDrawnWeapon,
-                weaponSlots: s.p1.weaponSlots.map(w => w ? { name: w.name, type: w.type } : null),
+                weaponSlots: s.p1.weaponSlots.map(w => w ? { name: w.name, type: w.type, bonus: w.bonus, cu: w.cu, desc: w.desc } : null),
             },
             p2: {
                 activeCard: s.p2.activeCard ? { name: s.p2.activeCard.name, atk: s.p2.activeCard.atk, def: s.p2.activeCard.def, pa: s.p2.activeCard.pa } : null,
@@ -91,7 +91,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
                 weaponsLeft: s.p2.weaponsLeft,
                 buffs: s.p2.buffs.map(b => ({ id: b.id, turns: b.turns })),
                 hasDrawnWeapon: s.p2.hasDrawnWeapon,
-                weaponSlots: s.p2.weaponSlots.map(w => w ? { name: w.name, type: w.type } : null),
+                weaponSlots: s.p2.weaponSlots.map(w => w ? { name: w.name, type: w.type, bonus: w.bonus, cu: w.cu, desc: w.desc } : null),
             },
         });
     }, [onStateChange]);

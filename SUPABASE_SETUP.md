@@ -749,3 +749,23 @@ in `recordGameResult(userId, outcome, mode)`.
 3. Perdi → ELO scende di -5
 4. Il bottone "Gioca contro Giocatori" è disabilitato (coming soon)
 5. Il valore iniziale dell'ELO è 100 (non 1000)
+
+
+RESTRUTTURARE L'INTERO CODICE IN FORMATO CLIENT SERVER
+tutta le funzionalità che hanno interazione con il database devono essere gestite dal server e devono essere autenticate.
+il client quando vuole fare una qualsiasi azione, quello che fa è mandare una richiesta al server API
+Il client manda una richiesta al server, se tutti i check passano, allora c'è l'interazione con il database.
+Richiesta:
+  -elaborazione richiesta/controllo
+  -collegamento del server verso il database
+
+  login: 
+  management della sessione:
+  Cookie:  devono avere la proprietà httpOnly e Secure True, che sia attiva.
+  
+
+  devi togliere tutta la logica dal frontend, qualsiasi azione fatta dal client è una richiesta verso il server, il server la elabora la autentica e la controlla, ritorna al client cio che è stato richiesto. (togli tutto il potere decisionale dal client) 
+
+aggiornami il file SUPABASE_SETUP.md con le modifiche
+
+url deve essere pulito e sicuro da informazioni sensibili (APIKEY)
