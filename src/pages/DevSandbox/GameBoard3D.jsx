@@ -2,8 +2,9 @@
  * GameBoard3D.jsx — 3D game board with GSAP-only animations.
  *
  * Architecture:
- *   1. True isometric BoardAlignedGroup (X + Y rotation)
- *   2. Auto knight draw at mount → GSAP flight to knight slots
+ *   1. CONFIG_3D dictionary: per-element position / rotation / scale
+ *      No global board-group rotation — every mesh is independently placed.
+ *   2. Auto knight draw at mount → GSAP flight from deck to central slot
  *   3. Weapon draw: click P1 deck → staggered flight to hand
  *   4. Hand: FIXED fan positions (no repositioning on add/remove)
  *   5. Play card: separate PlayingCard component (no R3F prop conflicts)
@@ -18,62 +19,164 @@ import * as THREE from 'three';
 import Card3D, { animatePlayCard } from './Card3D';
 import boardImg from '../../assets/gameboard_test.png';
 
-/* ═══════════════════════════════════════════════════════════════════
-   LAYOUT CONSTANTS
-   ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Table ── */
-const TABLE_W  = 16;
-const TABLE_H  = TABLE_W / (3615 / 2018);   // update if new image has different aspect
+/* ╔═══════════════════════════════════════════════════════════════════╗
+   ║  CONFIG_3D — Spatial Configuration Dictionary                     ║
+   ║                                                                   ║
+   ║  Every board element reads position / rotation / scale from here. ║
+   ║  Tweak any value for millimetre-precise placement.                ║
+   ║                                                                   ║
+   ║  Coordinate system (OrthographicCamera looking down Y):           ║
+   ║    X → right          positive = right on screen                  ║
+   ║    Y → up             positive = toward camera (height/lift)      ║
+   ║    Z → toward player  positive = bottom of screen                 ║
+   ║                                                                   ║
+   ║  Rotation is [rx, ry, rz] in radians.                             ║
+   ║    • Cards lying flat on table: rotation = [-π/2, 0, 0]           ║
+   ║    • Cards lying flat sideways: rotation = [-π/2, 0, π/2]         ║
+   ║                                                                   ║
+   ║  perspX / perspY — Perspective Grid Fine-Tuning                   ║
+   ║    Slide an element along the isometric grid AFTER placing it,    ║
+   ║    without touching rotation or scale. Both default to 0.         ║
+   ║      perspX: 0  → nudge left (−) or right (+) on screen           ║
+   ║      perspY: 0  → nudge toward top (−) or bottom (+) of screen    ║
+   ║    Adjust in small increments (e.g. ± 0.05).                      ║
+   ╚═══════════════════════════════════════════════════════════════════╝ */
+const CONFIG_3D = {
+
+  /* ─────────────────────────────────────────────────
+     Table / Background image
+     ───────────────────────────────────────────────── */
+  table: {
+    width:    16,
+    height:   16 / (3615 / 2018),            // matches gameboard_test.png aspect
+    position: [0, -0.01, 0],
+    rotation: [-Math.PI / 2, 0, 0],
+    scale:    [1, 1, 1],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Player Main Weapon Deck (bottom-left area)
+     Cards stacked horizontally (rotated 90° on Z).
+     ───────────────────────────────────────────────── */
+  playerMainDeck: {
+    position: [-3.9, 0.10, 2.0],             // X left, Z toward player
+    rotation: [-Math.PI / 2, 0, Math.PI / 2],// flat + sideways
+    scale:    [1.6, 1.6, 1.6],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Opponent Main Weapon Deck (top-left area, mirrored)
+     ───────────────────────────────────────────────── */
+  opponentMainDeck: {
+    position: [-3.9, 0.10, -2.0],            // same X, opposite Z
+    rotation: [-Math.PI / 2, 0, Math.PI / 2],
+    scale:    [1.6, 1.6, 1.6],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Player Knight Deck (bottom-right area)
+     Cards stacked vertically (no Z rotation).
+     ───────────────────────────────────────────────── */
+  playerKnightDeck: {
+    position: [3.7, 0.10, 0.1],
+    rotation: [-Math.PI / 2, 0, 0],          // flat, portrait
+    scale:    [1.6, 1.6, 1.6],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Opponent Knight Deck (top-right area, mirrored)
+     ───────────────────────────────────────────────── */
+  opponentKnightDeck: {
+    position: [3.7, 0.10, -1.2],
+    rotation: [-Math.PI / 2, 0, 0],
+    scale:    [1.6, 1.6, 1.6],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Player Knight Slot (centre, slightly LEFT)
+     Where the player's knight card lands after draw.
+     Rotation = [-π/2, 0, 0] → flat, face-up, readable.
+     ───────────────────────────────────────────────── */
+  playerKnightSlot: {
+    position: [-1.26, 0.10, -0.45],          // centre, offset left
+    rotation: [-Math.PI / 2, 0, 0],          // perfectly flat & readable
+    scale:    [1.6, 1.6, 1.6],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Opponent Knight Slot (centre, slightly RIGHT)
+     ───────────────────────────────────────────────── */
+  opponentKnightSlot: {
+    position: [1.26, 0.10, -0.45],           // centre, offset right
+    rotation: [-Math.PI / 2, 0, 0],          // perfectly flat & readable
+    scale:    [1.6, 1.6, 1.6],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Clash Zone — red ring between the two knights.
+     Sits at the exact geometric centre [0, 0, 0].
+     ───────────────────────────────────────────────── */
+  clashZone: {
+    position: [0, 0.003, -0.45],             // dead centre of the board
+    rotation: [-Math.PI / 2, 0, 0],
+    scale:    [1, 1, 1],
+    innerRadius: 0.25,                        // tight between the two cards
+    outerRadius: 0.35,
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+
+  /* ─────────────────────────────────────────────────
+     Player Equip Slot (where weapon cards land after play)
+     ───────────────────────────────────────────────── */
+  playerEquipSlot: {
+    position: [-1.5, 0.10, 0],               // left of the knight pair
+    rotation: [-Math.PI / 2, 0, 0],
+    scale:    [1, 1, 1],
+    perspX:   0,                              // ← nudge left/right on perspective grid
+    perspY:   0,                              // ← nudge up/down   on perspective grid
+  },
+};
+
+/**
+ * perspPos — Resolves the final world-space [x, y, z] for a CONFIG_3D element.
+ * Adds perspX (horizontal nudge → world X) and perspY (depth nudge → world Z).
+ * Every component that renders a board element must call this instead of
+ * reading cfg.position directly.
+ */
+function perspPos(cfg) {
+  return [
+    cfg.position[0] + (cfg.perspX || 0),
+    cfg.position[1],
+    cfg.position[2] + (cfg.perspY || 0),
+  ];
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   GAMEPLAY CONSTANTS (non-spatial)
+   ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Camera ── */
 const CAM_HEIGHT = 10;
 const CAM_ZOOM   = 100;
 
-/* ═══════════════════════════════════════════════════════════════════
-   BOARD TILT — Isometric Perspective Control
-   ═══════════════════════════════════════════════════════════════════
-   Combined X + Y rotations create true isometric foreshortening.
-
-   BOARD_TILT_X: Forward tilt (how much the board "falls away")
-     • More negative → steeper, more edge-on
-     • Less negative → flatter, more top-down
-     • -77° (current) gives strong perspective foreshortening
-
-   BOARD_TILT_Y: Lateral skew (isometric side perspective)
-     • 0° = no side perspective
-     • Positive → right-side appears nearer
-     • ~8° gives subtle 3/4 view matching the background art
-
-   Change these to calibrate the board plane to your gameboard PNG.
-   ═══════════════════════════════════════════════════════════════════ */
-const BOARD_TILT_X = Math.PI * (-77 / 180);     // ≈ -77° forward tilt
-const BOARD_TILT_Y = Math.PI * (8 / 180);       // ≈ +8° lateral isometric skew
-const BOARD_SCALE  = 1.50;
-
-/* ── Main Weapon Decks (LEFT, horizontal) ── */
-const P1_DECK    = [-4.2, 0.10,  0.6];
-const P2_DECK    = [-4.2, 0.10, -0.6];
-const DECK_H_ROT = [-Math.PI / 2, 0, Math.PI / 2];
-
-/* ── Knight Decks (RIGHT, vertical) ── */
-const P1_KDECK   = [ 4.0, 0.10,  0.6];
-const P2_KDECK   = [ 4.0, 0.10, -0.6];
-const DECK_V_ROT = [-Math.PI / 2, 0, 0];
-
-/* ── Active Knight slots (centre) ── */
-const P1_KNIGHT  = [ 1.5, 0.10,  0.6];
-const P2_KNIGHT  = [ 1.5, 0.10, -0.6];
-
-/* ── Equip Slot ── */
-const P1_EQUIP   = [ 0.0, 0.10,  0.6];
-
-/* ── Clash Zone ring ── */
-const CLASH_POS  = [ 1.5, 0.003, 0];
-const CLASH_R_IN = 0.4;
-const CLASH_R_OUT= 0.5;
-
-/* ── Player Hand (screen-space, OUTSIDE BoardAlignedGroup) ── */
+/* ── Player Hand (screen-space, outside any board group) ── */
 const HAND_Y       = 0.12;
 const HAND_Z       = 4.0;
 const HAND_CARD_SC = 2.2;
@@ -90,18 +193,19 @@ const OPP_FAN_ROT = 0.03;
 const OPP_Z_STEP  = 0.005;
 
 /* ── Draw Phase timings ── */
-const DRAW_COUNT        = 3;
-const CARD_ANIM_DUR     = 0.75;
-const FLIGHT_DUR        = 0.65;
-const FLIP_DUR          = 0.10;
-const ARC_PEAK          = 1.8;
-const STACK_TOP         = 0.30;
-const OPP_DRAW_DELAY    = 0.6;
+const DRAW_COUNT     = 3;
+const CARD_ANIM_DUR  = 0.75;
+const FLIGHT_DUR     = 0.65;
+const FLIP_DUR       = 0.10;
+const ARC_PEAK       = 1.8;
+const STACK_TOP      = 0.30;
+const OPP_DRAW_DELAY = 0.6;
 
 /* ── Knight Auto-Draw timings ── */
-const KNIGHT_DRAW_DELAY  = 0.5;   // delay after mount before P1 knight draw
-const KNIGHT_STAGGER     = 0.5;   // delay between P1 and P2 knight draws
-const KNIGHT_FLIGHT_DUR  = 0.75;
+const KNIGHT_DRAW_DELAY = 0.5;    // seconds after mount before P1 knight draw
+const KNIGHT_STAGGER    = 0.5;    // seconds between P1 and P2 knight draws
+const KNIGHT_FLIGHT_DUR = 0.80;   // total flight duration
+const KNIGHT_ARC_PEAK   = 1.6;    // Y height at apex of the arc
 
 /* ── Shadows ── */
 const SHADOW_CONTACT_OP = 0.20;
@@ -127,17 +231,6 @@ const SAMPLE_KNIGHTS = {
   p2: { name: 'Sentinel', type: 'knight', atk: 7,  def: 7,  pa: 3 },
 };
 
-/* ── Helper: compute world-space rotation for a card at a given local
-   rotation inside the BoardAlignedGroup ── */
-function boardWorldEuler(localEuler) {
-  const localQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(...localEuler));
-  const groupQ = new THREE.Quaternion().setFromEuler(
-    new THREE.Euler(BOARD_TILT_X, BOARD_TILT_Y, 0),
-  );
-  const worldQ = groupQ.multiply(localQ);
-  return new THREE.Euler().setFromQuaternion(worldQ);
-}
-
 
 /* ═══════════════════════════════════════════
    STATIC COMPONENTS
@@ -145,52 +238,67 @@ function boardWorldEuler(localEuler) {
 
 function Table() {
   const texture = useTexture(boardImg);
+  const { width, height, position, rotation } = CONFIG_3D.table;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-      <planeGeometry args={[TABLE_W, TABLE_H]} />
+    <mesh rotation={rotation} position={position} receiveShadow>
+      <planeGeometry args={[width, height]} />
       <meshStandardMaterial map={texture} roughness={0.85} metalness={0.05} />
     </mesh>
   );
 }
 
-function DeckStack({ position, count, cardRotation = DECK_V_ROT, onClick, hoverLift = 0 }) {
+function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
+  const cfg = CONFIG_3D[configKey];
   const groupRef = useRef();
+  const count = countOverride ?? 0;
   const layers = Math.min(count, 8);
+
+  /* World position = base position + perspective nudge */
+  const [baseX, baseY, baseZ] = perspPos(cfg);
+
+  /* Cards use LOCAL positions — the group handles world placement + scale */
   const cards = useMemo(() =>
     Array.from({ length: layers }, (_, i) => ({
       key: i,
-      pos: [position[0], position[1] + i * 0.03, position[2]],
-    })), [position[0], position[1], position[2], layers]);
+      pos: [0, i * 0.03, 0],
+    })), [layers]);
 
   const handleOver = useCallback(() => {
     if (!onClick) return;
     document.body.style.cursor = 'pointer';
     if (hoverLift > 0 && groupRef.current) {
       gsap.to(groupRef.current.position, {
-        y: hoverLift, duration: DECK_HOVER_DUR, ease: 'power2.out', overwrite: true,
+        y: baseY + hoverLift, duration: DECK_HOVER_DUR, ease: 'power2.out', overwrite: true,
       });
     }
-  }, [onClick, hoverLift]);
+  }, [onClick, hoverLift, baseY]);
 
   const handleOut = useCallback(() => {
     if (!onClick) return;
     document.body.style.cursor = 'default';
     if (hoverLift > 0 && groupRef.current) {
       gsap.to(groupRef.current.position, {
-        y: 0, duration: DECK_HOVER_DUR, ease: 'power2.inOut', overwrite: true,
+        y: baseY, duration: DECK_HOVER_DUR, ease: 'power2.inOut', overwrite: true,
       });
     }
-  }, [onClick, hoverLift]);
+  }, [onClick, hoverLift, baseY]);
 
   return (
-    <group ref={groupRef} onClick={onClick} onPointerOver={handleOver} onPointerOut={handleOut}>
+    <group
+      ref={groupRef}
+      position={[baseX, baseY, baseZ]}
+      scale={cfg.scale}
+      onClick={onClick}
+      onPointerOver={handleOver}
+      onPointerOut={handleOut}
+    >
       {cards.map(c => (
-        <Card3D key={c.key} position={c.pos} rotation={cardRotation} type="back" faceDown />
+        <Card3D key={c.key} position={c.pos} rotation={cfg.rotation} type="back" faceDown />
       ))}
       {count > 0 && (
         <Card3D
-          position={[position[0], position[1] + layers * 0.03 + 0.01, position[2]]}
-          rotation={cardRotation} type="deck" name={`${count}`}
+          position={[0, layers * 0.03 + 0.01, 0]}
+          rotation={cfg.rotation} type="deck" name={`${count}`}
         />
       )}
     </group>
@@ -231,7 +339,6 @@ function syncShadow(shadow, card) {
 function HandCard({ card, onPlay }) {
   const groupRef = useRef();
 
-  /* Fixed slot: card._drawIdx determines fan position in a DRAW_COUNT-wide fan */
   const offset = card._drawIdx - (DRAW_COUNT - 1) / 2;
   const posX   = offset * HAND_SPREAD;
   const posY   = HAND_Y + card._drawIdx * HAND_Z_STEP;
@@ -276,8 +383,9 @@ function OppHandCard({ index }) {
 
 /* ═══════════════════════════════════════════
    DRAWING CARD — direct flight, deck → hand
+   (world-space, no parent group transform)
    ═══════════════════════════════════════════ */
-function DrawingCard({ card, index, deckWorldPos, deckWorldRot, isOpponent, absoluteDelay, onLanded }) {
+function DrawingCard({ card, index, deckPos, deckRot, isOpponent, absoluteDelay, onLanded }) {
   const groupRef  = useRef();
   const shadowRef = useRef();
   const [revealed, setRevealed] = useState(false);
@@ -293,21 +401,17 @@ function DrawingCard({ card, index, deckWorldPos, deckWorldRot, isOpponent, abso
   useEffect(() => {
     const g = groupRef.current;
     const s = shadowRef.current;
-    if (!g || !deckWorldPos) return;
+    if (!g) return;
 
-    /* Reset to deck top in world space */
-    g.position.set(deckWorldPos.x, deckWorldPos.y, deckWorldPos.z);
-    if (deckWorldRot) {
-      g.rotation.set(deckWorldRot.x, deckWorldRot.y, deckWorldRot.z);
-    } else {
-      g.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
-    }
-    g.scale.set(BOARD_SCALE, BOARD_SCALE, BOARD_SCALE);
+    /* Start at deck top position (directly from CONFIG_3D) */
+    g.position.set(deckPos[0], deckPos[1] + STACK_TOP, deckPos[2]);
+    g.rotation.set(deckRot[0], deckRot[1], deckRot[2]);
+    g.scale.set(1, 1, 1);
     g.renderOrder = 20 + index;
     g.visible = true;
     syncShadow(s, g);
 
-    const scaleProxy = { x: BOARD_SCALE };
+    const scaleProxy = { x: 1 };
     const shadowUp   = () => syncShadow(s, g);
 
     const tl = gsap.timeline({ delay: absoluteDelay });
@@ -372,7 +476,7 @@ function DrawingCard({ card, index, deckWorldPos, deckWorldRot, isOpponent, abso
     tl.add(() => onLanded?.(index));
     return () => { tl.kill(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, deckWorldPos, absoluteDelay]);
+  }, [index, absoluteDelay]);
 
   return (
     <>
@@ -393,63 +497,94 @@ function DrawingCard({ card, index, deckWorldPos, deckWorldRot, isOpponent, abso
 
 /* ═══════════════════════════════════════════
    KNIGHT DRAW CARD — auto-draws from knight
-   deck to knight slot (inside BoardAlignedGroup)
+   deck to central knight slot.
+   
+   Animation:
+     1. Starts face-down at deck top position
+     2. Lifts on Y axis (arc peak)
+     3. Glides on XZ to the knight slot
+     4. Y-axis rotation = flip from back to face
+     5. Lands at CONFIG_3D slot rotation → perfectly
+        flat and readable for the player
    ═══════════════════════════════════════════ */
-function KnightDrawCard({ knightData, deckPos, targetPos, delay, onLanded }) {
+function KnightDrawCard({ knightData, deckConfigKey, slotConfigKey, delay, onLanded }) {
   const groupRef  = useRef();
   const shadowRef = useRef();
   const [revealed, setRevealed] = useState(false);
+
+  const deckCfg = CONFIG_3D[deckConfigKey];
+  const slotCfg = CONFIG_3D[slotConfigKey];
 
   useEffect(() => {
     const g = groupRef.current;
     const s = shadowRef.current;
     if (!g) return;
 
-    /* Start face-down at deck top */
-    g.position.set(deckPos[0], deckPos[1] + STACK_TOP, deckPos[2]);
-    g.rotation.set(-Math.PI / 2, 0, 0);
-    g.scale.set(1.2, 1.2, 1.2);
+    /* ── Start: face-down at deck top (perspX/perspY applied via perspPos) ── */
+    const [dX, dY, dZ] = perspPos(deckCfg);
+    g.position.set(dX, dY + STACK_TOP, dZ);
+    g.rotation.set(deckCfg.rotation[0], deckCfg.rotation[1], deckCfg.rotation[2]);
+    g.scale.set(deckCfg.scale[0], deckCfg.scale[1], deckCfg.scale[2]);
     g.visible = true;
     syncShadow(s, g);
 
-    const scaleProxy = { x: 1.2 };
+    /* ── Target: slot position with perspX/perspY applied ── */
+    const targetPos = perspPos(slotCfg);
+    const targetRot = slotCfg.rotation;
+    const targetSc  = slotCfg.scale;
+
     const shadowUp = () => syncShadow(s, g);
 
     const tl = gsap.timeline({ delay });
     tl.addLabel('fly', 0);
 
-    /* XZ: glide to knight slot */
+    /* XZ: glide from deck to knight slot */
     tl.to(g.position, {
       x: targetPos[0], z: targetPos[2],
       duration: KNIGHT_FLIGHT_DUR, ease: 'power2.inOut', onUpdate: shadowUp,
     }, 'fly');
 
-    /* Y: arc up then land */
+    /* Y: arc up then land at slot height */
     tl.to(g.position, {
       keyframes: [
-        { y: 1.2,            duration: KNIGHT_FLIGHT_DUR * 0.4, ease: 'power2.out' },
-        { y: targetPos[1],   duration: KNIGHT_FLIGHT_DUR * 0.6, ease: 'power2.in'  },
+        { y: KNIGHT_ARC_PEAK, duration: KNIGHT_FLIGHT_DUR * 0.4, ease: 'power2.out' },
+        { y: targetPos[1],    duration: KNIGHT_FLIGHT_DUR * 0.6, ease: 'power2.in'  },
       ],
       onUpdate: shadowUp,
     }, 'fly');
 
-    /* Face flip via scaleX squish → reveal → unsquish */
-    tl.to(scaleProxy, {
-      x: 0.02, duration: KNIGHT_FLIGHT_DUR * 0.2, ease: 'power2.in',
-      onUpdate: () => g.scale.setX(scaleProxy.x),
-    }, `fly+=${KNIGHT_FLIGHT_DUR * 0.35}`);
-    tl.add(() => setRevealed(true));
-    tl.to(scaleProxy, {
-      x: 1.2, duration: KNIGHT_FLIGHT_DUR * 0.2, ease: 'power1.out',
-      onUpdate: () => g.scale.setX(scaleProxy.x),
-    });
+    /* Rotation: interpolate from deck rotation to slot rotation.
+       The Y-axis rotation sweeps through π to create the face-flip. */
+    tl.to(g.rotation, {
+      x: targetRot[0],
+      z: targetRot[2],
+      duration: KNIGHT_FLIGHT_DUR, ease: 'power2.inOut',
+    }, 'fly');
+
+    /* Y-axis flip: sinuous rotation that reveals the face mid-flight */
+    tl.to(g.rotation, {
+      keyframes: [
+        { y: Math.PI * 0.5,  duration: KNIGHT_FLIGHT_DUR * 0.35, ease: 'power2.in'  },
+        { y: Math.PI,         duration: KNIGHT_FLIGHT_DUR * 0.15, ease: 'none'       },
+        { y: targetRot[1],    duration: KNIGHT_FLIGHT_DUR * 0.50, ease: 'power2.out' },
+      ],
+    }, 'fly');
+
+    /* Reveal the face at the midpoint of the Y flip */
+    tl.add(() => setRevealed(true), `fly+=${KNIGHT_FLIGHT_DUR * 0.45}`);
+
+    /* Scale: interpolate from deck scale to slot scale */
+    tl.to(g.scale, {
+      x: targetSc[0], y: targetSc[1], z: targetSc[2],
+      duration: KNIGHT_FLIGHT_DUR, ease: 'power2.inOut',
+    }, 'fly');
 
     /* Wobble on landing */
     tl.to(g.rotation, {
       keyframes: [
-        { y: 0.08, duration: 0.06, ease: 'sine.out' },
-        { y: -0.04, duration: 0.06, ease: 'sine.inOut' },
-        { y: 0, duration: 0.06, ease: 'sine.in' },
+        { z: targetRot[2] + 0.06, duration: 0.06, ease: 'sine.out'   },
+        { z: targetRot[2] - 0.03, duration: 0.06, ease: 'sine.inOut' },
+        { z: targetRot[2],        duration: 0.06, ease: 'sine.in'    },
       ],
     });
 
@@ -473,7 +608,6 @@ function KnightDrawCard({ knightData, deckPos, targetPos, delay, onLanded }) {
           atk={revealed ? knightData.atk : undefined}
           def={revealed ? knightData.def : undefined}
           pa={revealed ? knightData.pa : undefined}
-          scale={1.2}
           renderOrder={30}
         />
       </group>
@@ -525,9 +659,6 @@ function Scene({ gameState }) {
   const p1 = gameState?.p1;
   const p2 = gameState?.p2;
 
-  /* ── Refs ── */
-  const boardGroupRef = useRef();
-
   /* ── Knight Auto-Draw state ── */
   const [knightsPhase, setKnightsPhase] = useState('idle');  // 'idle' | 'drawing' | 'done'
   const [p1KnightReady, setP1KnightReady] = useState(false);
@@ -559,24 +690,8 @@ function Scene({ gameState }) {
   /* ── Click P1 Main Deck → trigger weapon draw ── */
   const handleDraw = useCallback(() => {
     if (drawData) return;
-    const iso = boardGroupRef.current;
-    if (!iso) return;
-    iso.updateMatrixWorld();
-
-    const p1Top = new THREE.Vector3(P1_DECK[0], P1_DECK[1] + STACK_TOP, P1_DECK[2]);
-    p1Top.applyMatrix4(iso.matrixWorld);
-
-    const p2Top = new THREE.Vector3(P2_DECK[0], P2_DECK[1] + STACK_TOP, P2_DECK[2]);
-    p2Top.applyMatrix4(iso.matrixWorld);
-
-    /* Pre-compute world rotation for cards sitting on the deck */
-    const wr = boardWorldEuler(DECK_H_ROT);
-
     setDrawData({
       cards: SAMPLE_DRAW.slice(0, DRAW_COUNT),
-      p1World: p1Top,
-      p2World: p2Top,
-      deckWorldRot: { x: wr.x, y: wr.y, z: wr.z },
     });
   }, [drawData]);
 
@@ -604,13 +719,10 @@ function Scene({ gameState }) {
     });
   }, []);
 
-  /* ── Play card from hand → equip slot ──
-     Removes card from hand IMMEDIATELY, then mounts a PlayingCard
-     which runs the GSAP animation independently (no R3F prop conflict). */
+  /* ── Play card from hand → equip slot ── */
   const handlePlayCard = useCallback((drawIdx, cardGroup) => {
     if (!cardGroup) return;
 
-    /* Capture position before React unmounts the HandCard */
     const startPos = {
       x: cardGroup.position.x,
       y: cardGroup.position.y,
@@ -618,18 +730,17 @@ function Scene({ gameState }) {
     };
     const card = playerHand.find(c => c._drawIdx === drawIdx);
 
-    /* Compute world-space equip target */
-    const iso = boardGroupRef.current;
-    const target = { x: 0, y: 0.1, z: 0, rotX: -Math.PI / 2, rotY: 0, rotZ: 0 };
-    if (iso) {
-      iso.updateMatrixWorld();
-      const v = new THREE.Vector3(...P1_EQUIP).applyMatrix4(iso.matrixWorld);
-      target.x = v.x; target.y = v.y; target.z = v.z;
-      const wr = boardWorldEuler(DECK_V_ROT);
-      target.rotX = wr.x; target.rotY = wr.y; target.rotZ = wr.z;
-    }
+    const equipCfg = CONFIG_3D.playerEquipSlot;
+    const [eqX, eqY, eqZ] = perspPos(equipCfg);
+    const target = {
+      x: eqX,
+      y: eqY,
+      z: eqZ,
+      rotX: equipCfg.rotation[0],
+      rotY: equipCfg.rotation[1],
+      rotZ: equipCfg.rotation[2],
+    };
 
-    /* Remove from hand immediately → mount PlayingCard */
     setPlayedCards(prev => new Set(prev).add(drawIdx));
     setPlayingCard({ card, startPos, target });
   }, [playerHand]);
@@ -644,6 +755,9 @@ function Scene({ gameState }) {
     () => playerHand.filter(c => !playedCards.has(c._drawIdx)),
     [playerHand, playedCards],
   );
+
+  /* Shorthand refs to CONFIG_3D for the clash zone */
+  const clash = CONFIG_3D.clashZone;
 
   return (
     <>
@@ -685,76 +799,88 @@ function Scene({ gameState }) {
         color="#000000"
       />
 
-      {/* ── BoardAlignedGroup ──
-          True isometric: combined X + Y rotation.
-          ALL board-level objects (decks, knights, clash) go inside. */}
-      <group
-        ref={boardGroupRef}
-        rotation={[BOARD_TILT_X, BOARD_TILT_Y, 0]}
-        scale={BOARD_SCALE}
-      >
-        {/* Main Weapon Decks (LEFT) — P1 has hover lift */}
-        <DeckStack
-          position={P1_DECK} count={p1?.weaponsLeft ?? 45}
-          cardRotation={DECK_H_ROT} onClick={handleDraw}
-          hoverLift={DECK_HOVER_LIFT}
-        />
-        <DeckStack
-          position={P2_DECK} count={p2?.weaponsLeft ?? 45}
-          cardRotation={DECK_H_ROT}
-        />
+      {/* ── Decks — each reads its own transform from CONFIG_3D ── */}
 
-        {/* Knight Decks (RIGHT) — count decreases after knight draw */}
-        <DeckStack
-          position={P1_KDECK}
-          count={(p1?.cardsLeft ?? 5) - (knightsPhase !== 'idle' ? 1 : 0)}
+      {/* Player Main Weapon Deck — clickable with hover lift */}
+      <DeckStack
+        configKey="playerMainDeck"
+        countOverride={p1?.weaponsLeft ?? 45}
+        onClick={handleDraw}
+        hoverLift={DECK_HOVER_LIFT}
+      />
+
+      {/* Opponent Main Weapon Deck */}
+      <DeckStack
+        configKey="opponentMainDeck"
+        countOverride={p2?.weaponsLeft ?? 45}
+      />
+
+      {/* Player Knight Deck — count decreases after knight drawn */}
+      <DeckStack
+        configKey="playerKnightDeck"
+        countOverride={(p1?.cardsLeft ?? 5) - (knightsPhase !== 'idle' ? 1 : 0)}
+      />
+
+      {/* Opponent Knight Deck */}
+      <DeckStack
+        configKey="opponentKnightDeck"
+        countOverride={(p2?.cardsLeft ?? 5) - (p2KnightReady || knightsPhase === 'drawing' ? 1 : 0)}
+      />
+
+      {/* ── Knight Auto-Draw Animations ── */}
+      {knightsPhase === 'drawing' && !p1KnightReady && (
+        <KnightDrawCard
+          knightData={SAMPLE_KNIGHTS.p1}
+          deckConfigKey="playerKnightDeck"
+          slotConfigKey="playerKnightSlot"
+          delay={0}
+          onLanded={() => setP1KnightReady(true)}
         />
-        <DeckStack
-          position={P2_KDECK}
-          count={(p2?.cardsLeft ?? 5) - (p2KnightReady || knightsPhase === 'drawing' ? 1 : 0)}
+      )}
+      {knightsPhase === 'drawing' && !p2KnightReady && (
+        <KnightDrawCard
+          knightData={SAMPLE_KNIGHTS.p2}
+          deckConfigKey="opponentKnightDeck"
+          slotConfigKey="opponentKnightSlot"
+          delay={KNIGHT_STAGGER}
+          onLanded={() => setP2KnightReady(true)}
         />
+      )}
 
-        {/* ── Knight Auto-Draw Animations ── */}
-        {knightsPhase === 'drawing' && !p1KnightReady && (
-          <KnightDrawCard
-            knightData={SAMPLE_KNIGHTS.p1}
-            deckPos={P1_KDECK}
-            targetPos={P1_KNIGHT}
-            delay={0}
-            onLanded={() => setP1KnightReady(true)}
-          />
-        )}
-        {knightsPhase === 'drawing' && !p2KnightReady && (
-          <KnightDrawCard
-            knightData={SAMPLE_KNIGHTS.p2}
-            deckPos={P2_KDECK}
-            targetPos={P2_KNIGHT}
-            delay={KNIGHT_STAGGER}
-            onLanded={() => setP2KnightReady(true)}
-          />
-        )}
+      {/* ── Landed Knights (static, face up) ── */}
+      {p1KnightReady && (
+        <Card3D
+          position={perspPos(CONFIG_3D.playerKnightSlot)}
+          rotation={CONFIG_3D.playerKnightSlot.rotation}
+          scale={CONFIG_3D.playerKnightSlot.scale}
+          type="knight"
+          name={SAMPLE_KNIGHTS.p1.name}
+          atk={SAMPLE_KNIGHTS.p1.atk}
+          def={SAMPLE_KNIGHTS.p1.def}
+          pa={SAMPLE_KNIGHTS.p1.pa}
+        />
+      )}
+      {p2KnightReady && (
+        <Card3D
+          position={perspPos(CONFIG_3D.opponentKnightSlot)}
+          rotation={CONFIG_3D.opponentKnightSlot.rotation}
+          scale={CONFIG_3D.opponentKnightSlot.scale}
+          type="knight"
+          name={SAMPLE_KNIGHTS.p2.name}
+          atk={SAMPLE_KNIGHTS.p2.atk}
+          def={SAMPLE_KNIGHTS.p2.def}
+          pa={SAMPLE_KNIGHTS.p2.pa}
+        />
+      )}
 
-        {/* ── Landed Knights (static, face up, always visible) ── */}
-        {p1KnightReady && (
-          <Card3D position={P1_KNIGHT} rotation={DECK_V_ROT} type="knight"
-                  name={SAMPLE_KNIGHTS.p1.name} atk={SAMPLE_KNIGHTS.p1.atk}
-                  def={SAMPLE_KNIGHTS.p1.def} pa={SAMPLE_KNIGHTS.p1.pa} scale={1.2} />
-        )}
-        {p2KnightReady && (
-          <Card3D position={P2_KNIGHT} rotation={DECK_V_ROT} type="knight"
-                  name={SAMPLE_KNIGHTS.p2.name} atk={SAMPLE_KNIGHTS.p2.atk}
-                  def={SAMPLE_KNIGHTS.p2.def} pa={SAMPLE_KNIGHTS.p2.pa} scale={1.2} />
-        )}
-
-        {/* Clash Zone ring */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={CLASH_POS}>
-          <ringGeometry args={[CLASH_R_IN, CLASH_R_OUT, 32]} />
-          <meshStandardMaterial
-            color="#8a0303" emissive="#8a0303" emissiveIntensity={0.5}
-            transparent opacity={0.45} side={THREE.DoubleSide}
-          />
-        </mesh>
-      </group>
+      {/* ── Clash Zone ring (dead centre between the two knights) ── */}
+      <mesh rotation={clash.rotation} position={perspPos(clash)} scale={clash.scale}>
+        <ringGeometry args={[clash.innerRadius, clash.outerRadius, 32]} />
+        <meshStandardMaterial
+          color="#8a0303" emissive="#8a0303" emissiveIntensity={0.5}
+          transparent opacity={0.45} side={THREE.DoubleSide}
+        />
+      </mesh>
 
       {/* ── Player Drawing Cards ── */}
       {drawData && drawData.cards.map((card, i) =>
@@ -762,8 +888,8 @@ function Scene({ gameState }) {
           <DrawingCard
             key={`p1draw-${i}`}
             card={card} index={i}
-            deckWorldPos={drawData.p1World}
-            deckWorldRot={drawData.deckWorldRot}
+            deckPos={perspPos(CONFIG_3D.playerMainDeck)}
+            deckRot={CONFIG_3D.playerMainDeck.rotation}
             isOpponent={false}
             absoluteDelay={i * CARD_ANIM_DUR}
             onLanded={handleP1Landed}
@@ -777,8 +903,8 @@ function Scene({ gameState }) {
           <DrawingCard
             key={`p2draw-${i}`}
             card={null} index={i}
-            deckWorldPos={drawData.p2World}
-            deckWorldRot={drawData.deckWorldRot}
+            deckPos={perspPos(CONFIG_3D.opponentMainDeck)}
+            deckRot={CONFIG_3D.opponentMainDeck.rotation}
             isOpponent
             absoluteDelay={i * CARD_ANIM_DUR}
             onLanded={handleP2Landed}

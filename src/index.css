@@ -26,7 +26,7 @@ body {
   padding: 0;
 }
 
-/* Global cursor-pointer for all interactive elements */
+/* cursor pointer per tutti gli elementi interattivi */
 a, button:not(:disabled), [role="button"], [onclick], select, label[for],
 input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="button"] {
   cursor: pointer;
@@ -44,7 +44,7 @@ input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="b
   background-clip: text;
 }
 
-/* ═══════════════ Shop — UIverse Card Style ═══════════════ */
+/* ═══════════════ Stile Shop Cards ═══════════════ */
 .shop-card {
   position: relative;
   border-radius: 1rem;
@@ -144,7 +144,7 @@ input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="b
     --bg-dark: #050505;
 }
 
-/* Game page body override — applied via .game-page wrapper */
+/* Body pagina del gioco — applicato tramite il wrapper .game-page */
 .game-page {
     background-color: var(--bg-dark);
     color: #d1d5db;
@@ -294,7 +294,7 @@ input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="b
 .game-page .zoom-container .mini-card-stats .stat-val { font-size: 0.6rem; margin-top: 4px; }
 .game-page .zoom-container .mini-card-face { border-width: 3px; }
 
-/* Animazioni Combat e Interazioni Desktop (Default) */
+/* Animazioni Combat e Interazioni Desktop (di Default) */
 @media (min-width: 769px) {
     @keyframes attackP1 {
         0% { transform: translateX(0) rotate(0deg); z-index: 10; }
