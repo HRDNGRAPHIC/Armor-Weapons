@@ -26,7 +26,7 @@ export default function Profile() {
     } catch (err) {
       console.error('[Profile] signOut error:', err);
     }
-    // Force full page reload to wipe all in-memory state
+    // Forza il ricaricamento completo della pagina per azzerare lo stato in memoria
     window.location.href = '/login';
   }
 
@@ -34,10 +34,10 @@ export default function Profile() {
     if (!user) return;
     setDeleting(true);
     try {
-      // Call RPC to delete user from auth.users (cascades all data)
+      // Chiama RPC per eliminare l'utente da auth.users (a cascata su tutti i dati)
       const { error } = await supabase.rpc('delete_own_account');
       if (error) throw error;
-      // Sign out and redirect
+      // Disconnetti e reindirizza
       await supabase.auth.signOut({ scope: 'global' });
       window.location.href = '/login';
     } catch (err) {
@@ -80,7 +80,7 @@ export default function Profile() {
                   : '🛡️'
                 }
               </div>
-              {/* Editable name */}
+              {/* Nome modificabile */}
               {editingName ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -110,7 +110,7 @@ export default function Profile() {
               <p className="text-fantasy-silver text-sm">{user?.email}</p>
             </div>
 
-            {/* Settings */}
+            {/* Impostazioni */}
             <div className="space-y-4">
               <div className="flex items-center justify-between py-3 border-b border-fantasy-border/50">
                 <span className="text-fantasy-silver text-sm">Fazione</span>
@@ -142,7 +142,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Logout */}
+            {/* Disconnessione */}
             <button
               onClick={handleLogout}
               className="w-full mt-8 py-3 rounded-xl border border-fantasy-red text-fantasy-red font-display font-bold text-sm hover:bg-fantasy-red/10 transition"
@@ -150,7 +150,7 @@ export default function Profile() {
               Esci
             </button>
 
-            {/* Delete Account */}
+            {/* Elimina Account */}
             <button
               onClick={() => setShowDeletePopup(true)}
               className="w-full mt-3 py-3 rounded-xl border border-red-800/50 text-red-500/70 font-display font-bold text-xs hover:bg-red-900/10 hover:text-red-400 transition"
@@ -161,7 +161,7 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Delete Account Confirmation Popup */}
+      {/* Popup di Conferma Eliminazione Account */}
       <AnimatePresence>
         {showDeletePopup && (
           <motion.div

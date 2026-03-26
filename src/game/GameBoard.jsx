@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+﻿import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { generateCard, generateEquipmentDeck, createDeck, getInitialState, getPixelSVG, pixelArtsKnights, pixelArtsWeapons, pixelArtsShields, pixelArtsItems, pixelArtsTerrains } from './data/gameData';
 import { playSound } from './data/gameAudio';
@@ -42,7 +42,7 @@ function buildPlayerDeck(knightIds, cardIds) {
     return null;
   }).filter(Boolean);
 
-  // Shuffle equipment into 9-card chunks like generateEquipmentDeck
+  // Mescola l'equipaggiamento in blocchi da 9 carte come generateEquipmentDeck
   for (let i = equipment.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [equipment[i], equipment[j]] = [equipment[j], equipment[i]];
@@ -80,13 +80,13 @@ export default function GameBoard() {
         setReactP1Card(!!s.p1.activeCard);
     }, []);
 
-    // --- Helper: get DOM element by ID within our container ---
+    // --- Helper: recupera elemento DOM tramite ID nel container ---
     const $ = useCallback((id) => {
         if (!containerRef.current) return null;
         return containerRef.current.querySelector(`#${CSS.escape(id)}`);
     }, []);
 
-    // --- BUFF/TERRAIN LOGIC (exact copy) ---
+    // --- LOGICA BUFF/TERRENO (copia esatta) ---
     const processBuffs = useCallback((playerNum) => {
         let state = stateRef.current;
         let pState = playerNum === 1 ? state.p1 : state.p2;
@@ -131,7 +131,7 @@ export default function GameBoard() {
 
     const getFinalStats = useCallback((playerNum) => { return getEffectiveStats(playerNum); }, [getEffectiveStats]);
 
-    // --- RENDER FUNCTIONS (exact copy, using innerHTML) ---
+    // --- FUNZIONI DI RENDERING (copia esatta, tramite innerHTML) ---
     const renderCardHTML = useCallback((card, playerId = null, isZoom = false) => {
         if(!card) return '';
         let state = stateRef.current;
@@ -214,7 +214,7 @@ export default function GameBoard() {
             </div>`;
     }, []);
 
-    // --- UPDATE UI (exact copy) ---
+    // --- AGGIORNAMENTO UI (copia esatta) ---
     const updateUI = useCallback(() => {
         let state = stateRef.current;
         const el = (id) => $(`${id}`);
@@ -265,14 +265,14 @@ export default function GameBoard() {
             if (p1Deck) p1Deck.classList.add('disabled'); if (p1WeaponDeck) p1WeaponDeck.classList.add('disabled');
         }
 
-        // Re-bind weapon click handlers after innerHTML update
+        // Ricollegare gli handler di click sulle armi dopo l'aggiornamento innerHTML
         rebindWeaponHandlers();
         rebindKnightHandlers();
-        // Sync mutable stateRef → React state (buttons, AI trigger)
+        // Sincronizza lo stateRef mutabile → stato React (pulsanti, trigger AI)
         syncReactState();
     }, [$, renderCardHTML, renderWeaponHTML, syncReactState]);
 
-    // --- SHATTER CARD (exact copy) ---
+    // --- FRANTUMA CARTA (copia esatta) ---
     const shatterCard = useCallback((cardEl) => {
         playSound('shatter'); const parent = cardEl.parentElement; cardEl.style.opacity = '0';
         const colors = ['#1a1a1a', '#8a0303', '#ff0000', '#000000', '#e2d1a3', '#8b4513'];
@@ -285,7 +285,7 @@ export default function GameBoard() {
         }
     }, []);
 
-    // --- ANIMATE DRAW (exact copy) ---
+    // --- ANIMAZIONE PESCA (copia esatta) ---
     const animateDraw = useCallback((deckId, targetId) => {
         const deckEl = $(deckId); const targetEl = $(targetId);
         if (deckEl && targetEl) {
@@ -297,10 +297,10 @@ export default function GameBoard() {
         }
     }, [$]);
 
-    // --- TRIGGER ERROR (exact copy) ---
+    // --- TRIGGER ERRORE (copia esatta) ---
     const triggerError = useCallback((elId) => { playSound('error'); const el = $(elId); if (el) { el.classList.add('anim-error'); setTimeout(() => el.classList.remove('anim-error'), 300); } }, [$]);
 
-    // --- ZOOM FUNCTIONS ---
+    // --- FUNZIONI ZOOM ---
     const closeZoom = useCallback(() => {
         const zoomOverlay = $('zoom-overlay'); const zoomContainer = $('zoom-container');
         if (!zoomOverlay || !zoomContainer) return;
@@ -343,7 +343,7 @@ export default function GameBoard() {
         }
     }, [handleRightClick]);
 
-    // --- ACTIVATE TERRAIN (exact copy) ---
+    // --- ATTIVA TERRENO (copia esatta) ---
     const activateTerrain = useCallback((terrainCard, playerNum) => {
         let state = stateRef.current;
         return new Promise(resolve => {
@@ -362,7 +362,7 @@ export default function GameBoard() {
         });
     }, [$, renderWeaponZoomHTML, applyRiflesso, updateUI]);
 
-    // --- DRAW CARD (exact copy) ---
+    // --- PESCA CARTA (copia esatta) ---
     const drawCard = useCallback((playerNum, force = false) => {
         let state = stateRef.current;
         if (state.isPaused) return;
@@ -374,7 +374,7 @@ export default function GameBoard() {
         playSound('draw'); updateUI(); animateDraw(`p${playerNum}-deck`, `card-${card.id}`);
     }, [applyRiflesso, updateUI, animateDraw]);
 
-    // --- DRAW SINGLE WEAPON (exact copy) ---
+    // --- PESCA SINGOLA ARMA (copia esatta) ---
     const drawSingleWeaponRef = useRef(null);
     const drawSingleWeapon = useCallback(async (playerNum, targetSlotIndex) => {
         let state = stateRef.current;
@@ -387,7 +387,7 @@ export default function GameBoard() {
     }, [activateTerrain, updateUI, animateDraw]);
     drawSingleWeaponRef.current = drawSingleWeapon;
 
-    // --- DRAW WEAPON (exact copy) ---
+    // --- PESCA ARMA (copia esatta) ---
     const drawWeapon = useCallback((playerNum) => {
         let state = stateRef.current;
         if (state.isPaused) return; let p = playerNum === 1 ? state.p1 : state.p2;
@@ -405,7 +405,7 @@ export default function GameBoard() {
         processNextDraw();
     }, [activateTerrain, triggerError, updateUI, animateDraw]);
 
-    // --- CHECK WIN CONDITION & GAME OVER ---
+    // --- CONTROLLA VITTORIA E FINE PARTITA ---
     const showGameOver = useCallback(async (message) => {
         let state = stateRef.current;
         state.gameOver = true;
@@ -415,7 +415,7 @@ export default function GameBoard() {
         if (winnerText) winnerText.innerText = message;
         if (gameOverScreen) { gameOverScreen.classList.remove('hidden'); gameOverScreen.classList.add('flex'); }
 
-        // Record ELO result
+        // Registra il risultato ELO
         if (user) {
             let outcome = 'draw';
             if (message.includes('GIOCATORE 1 TRIONFA')) outcome = 'win';
@@ -427,7 +427,7 @@ export default function GameBoard() {
         }
     }, [$, user, refreshProfile, updateUserGold, syncReactState, location.state]);
 
-    // --- ABANDON GAME ---
+    // --- ABBANDONA PARTITA ---
     const abandonGame = useCallback(async () => {
         let state = stateRef.current;
         if (state.gameOver) { navigate('/lobby'); return; }
@@ -453,7 +453,7 @@ export default function GameBoard() {
         else if (p2Lost) showGameOver("IL GIOCATORE 1 TRIONFA!");
     }, [showGameOver]);
 
-    // --- EQUIP WEAPON (exact copy) ---
+    // --- EQUIPAGGIA ARMA (copia esatta) ---
     const equipWeaponRef = useRef(null);
     const equipWeapon = useCallback((playerNum, slotIndex) => {
         let state = stateRef.current;
@@ -500,7 +500,7 @@ export default function GameBoard() {
     }, [$, zoomWeapon, triggerError, shatterCard, updateUI]);
     equipWeaponRef.current = equipWeapon;
 
-    // --- DISCARD WEAPON (exact copy) ---
+    // --- SCARTA ARMA (copia esatta) ---
     const discardWeaponRef = useRef(null);
     const discardWeapon = useCallback((event, playerNum, slotIndex) => {
         let state = stateRef.current;
@@ -516,7 +516,7 @@ export default function GameBoard() {
     }, [$, zoomWeapon, shatterCard, updateUI]);
     discardWeaponRef.current = discardWeapon;
 
-    // --- END TURN (exact copy) ---
+    // --- FINE TURNO (copia esatta) ---
     const endTurnRef = useRef(null);
     const endTurn = useCallback((playerNum) => {
         let state = stateRef.current;
@@ -543,11 +543,11 @@ export default function GameBoard() {
             }
         }
         updateUI();
-        // AI trigger handled reactively by useEffect watching reactTurn
+        // Trigger AI gestito reattivamente dall'useEffect che osserva reactTurn
     }, [processBuffs, updateUI]);
     endTurnRef.current = endTurn;
 
-    // --- ATTACK (exact copy) ---
+    // --- ATTACCO (copia esatta) ---
     const attack = useCallback((playerNum) => {
         let state = stateRef.current;
         if (state.isPaused) return;
@@ -579,7 +579,7 @@ export default function GameBoard() {
         } else { setTimeout(() => { updateUI(); if (!state.gameOver) endTurnRef.current(playerNum); }, animDur); }
     }, [$, getFinalStats, triggerError, shatterCard, updateUI, checkWinCondition, syncReactState]);
 
-    // --- AI TURN (exact copy) ---
+    // --- TURNO AI (copia esatta) ---
     const checkPause = useCallback(async () => { while (stateRef.current.isPaused) await wait(200); }, []);
 
     const playAITurnRef = useRef(null);
@@ -617,7 +617,7 @@ export default function GameBoard() {
     }, [$, checkPause, drawCard, drawWeapon, attack]);
     playAITurnRef.current = playAITurn;
 
-    // --- PAUSE & TUTORIAL ---
+    // --- PAUSA E TUTORIAL ---
     const togglePause = useCallback(() => {
         let state = stateRef.current;
         if (state.gameOver || state.isInitializing) return;
@@ -649,7 +649,7 @@ export default function GameBoard() {
         }
     }, [$]);
 
-    // --- RE-BIND EVENT HANDLERS (after innerHTML updates) ---
+    // --- RIAGGANCIA EVENT HANDLER (dopo aggiornamenti innerHTML) ---
     const rebindWeaponHandlers = useCallback(() => {
         if (!containerRef.current) return;
         for (let playerNum = 1; playerNum <= 2; playerNum++) {
@@ -678,13 +678,13 @@ export default function GameBoard() {
         }
     }, [$, handleKnightClick, handleRightClick]);
 
-    // --- INIT GAME (exact copy) ---
+    // --- INIZIALIZZA PARTITA (copia esatta) ---
     const initGame = useCallback(async () => {
         let state = stateRef.current;
         state.turn = 1; state.hasAttacked = false; state.gameOver = false; state.isInitializing = true; state.isPaused = false;
         state.activeTerrain = null;
 
-        // Check if a saved deck was passed via navigation state
+        // Controlla se è stato passato un mazzo salvato via navigation state
         const deckState = location.state;
         if (deckState?.knights?.length && deckState?.cards?.length) {
             const { knights, equipment } = buildPlayerDeck(deckState.knights, deckState.cards);
@@ -700,7 +700,7 @@ export default function GameBoard() {
         }
         state.p1.activeCard = null; state.p1.weaponSlots = [null, null, null]; state.p1.hasDrawnWeapon = false; state.p1.hasUsedRedraw = false; state.p1.buffs = []; state.p1.weaponAtkGainedThisTurn = 0; state.p1.lastTurnWeaponAtk = 0;
 
-        // AI always gets random deck
+        // L'AI ottiene sempre un mazzo casuale
         state.p2.deck = createDeck(generateCard, 5); state.p2.weaponDeck = generateEquipmentDeck(); state.p2.cardsLeft = 5; state.p2.weaponsLeft = 45;
         state.p2.activeCard = null; state.p2.weaponSlots = [null, null, null]; state.p2.hasDrawnWeapon = false; state.p2.hasUsedRedraw = false; state.p2.buffs = []; state.p2.weaponAtkGainedThisTurn = 0; state.p2.lastTurnWeaponAtk = 0;
 
@@ -715,7 +715,7 @@ export default function GameBoard() {
         }
     }, [$, updateUI, drawCard, location.state]);
 
-    // --- KEYBOARD HANDLER ---
+    // --- GESTORE TASTIERA ---
     useEffect(() => {
         const handler = (e) => {
             let state = stateRef.current;
@@ -732,25 +732,25 @@ export default function GameBoard() {
         return () => window.removeEventListener('keydown', handler);
     }, [$, hideTutorial, togglePause]);
 
-    // --- MOUNT: init game ---
+    // --- MOUNT: inizializza partita ---
     useEffect(() => {
         if (initRef.current) return;
         initRef.current = true;
-        // Small delay to allow DOM to render
+        // Piccolo ritardo per permettere al DOM di renderizzare
         setTimeout(() => initGame(), 100);
     }, [initGame]);
 
-    // --- AI TURN: triggered reactively when turn changes to 2 ---
+    // --- TURNO AI: attivato reattivamente al cambio turno verso 2 ---
     useEffect(() => {
         if (reactTurn === 2 && !reactOver && !reactInit) {
             playAITurnRef.current();
         }
     }, [reactTurn, reactOver, reactInit]);
 
-    // --- RENDER (exact HTML structure from A&Wmobile.html) ---
+    // --- RENDER (struttura HTML esatta da A&Wmobile.html) ---
     return (
         <div ref={containerRef} className="game-page h-screen flex flex-col" style={{ fontFamily: "'Press Start 2P', monospace" }}>
-            {/* Header */}
+            {/* Intestazione */}
             <header className="py-2 md:py-4 border-b-2 border-red-900 bg-black/60 relative z-10 flex flex-row items-center justify-between px-4 md:px-8">
                 <button className="btn text-[0.4rem] md:text-sm px-3 md:px-4 py-2" onClick={togglePause}>{'\u2699\uFE0F'} MENU</button>
                 <div className="flex flex-col items-center flex-grow">
@@ -833,7 +833,7 @@ export default function GameBoard() {
                 </section>
             </main>
 
-            {/* Game Over Overlay */}
+            {/* Schermata Fine Partita */}
             <div id="game-over-screen" className="fixed inset-0 hidden flex-col justify-center items-center z-50 bg-black/90" style={{backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)', backgroundSize: '100% 4px'}}>
                 <h1 id="winner-text" className="text-3xl md:text-6xl text-red-600 frazetta-title mb-8 text-shadow-lg text-center px-4">VITTORIA!</h1>
                 <div className="flex flex-col gap-4">
@@ -842,13 +842,13 @@ export default function GameBoard() {
                 </div>
             </div>
 
-            {/* Zoom Overlay */}
+            {/* Overlay Zoom */}
             <div id="zoom-overlay" className="fixed inset-0 hidden z-[100] bg-black/90 flex-col justify-center items-center cursor-pointer backdrop-blur-sm opacity-0 transition-opacity duration-300" onClick={closeZoom}>
                 <div id="zoom-container" className="zoom-container drop-shadow-[0_0_40px_rgba(138,3,3,0.6)] pointer-events-none"></div>
                 <div className="absolute bottom-10 text-gray-400 text-[0.6rem] md:text-sm animate-pulse text-center w-full">Tocca ovunque per chiudere</div>
             </div>
 
-            {/* Pause Menu */}
+            {/* Menu Pausa */}
             <div id="pause-menu" className="fixed inset-0 hidden z-[110] bg-black/80 flex-col justify-center items-center backdrop-blur-sm">
                 <h2 className="text-4xl md:text-6xl text-red-600 frazetta-title mb-8 md:mb-12 text-shadow-lg">PAUSA</h2>
                 <button className="btn text-xl md:text-2xl px-8 py-4 mb-4 md:mb-6 w-64 md:w-80 shadow-[4px_4px_0px_#000]" onClick={togglePause}>Riprendi</button>
@@ -856,7 +856,7 @@ export default function GameBoard() {
                 <button className="btn text-xl md:text-2xl px-8 py-4 w-64 md:w-80 shadow-[4px_4px_0px_#000] border-red-800 hover:bg-red-900/40 text-red-400" onClick={abandonGame}>{"\uD83C\uDFF3\uFE0F"} ABBANDONA</button>
             </div>
 
-            {/* Tutorial Overlay */}
+            {/* Overlay Tutorial */}
             <div id="tutorial-overlay" className="fixed inset-0 hidden z-[120] bg-black/95 flex-col justify-start items-center p-4 sm:p-8 overflow-y-auto">
                 <h2 className="text-2xl md:text-4xl text-yellow-500 frazetta-title mb-4 md:mb-6 mt-4 text-shadow-lg flex-shrink-0">TUTORIAL</h2>
                 <div className="max-w-3xl w-full bg-[#111] border-4 border-red-900 p-4 md:p-8 text-[0.55rem] sm:text-[0.7rem] text-gray-300 leading-relaxed md:leading-loose space-y-4 md:space-y-6 overflow-y-auto custom-scrollbar flex-grow" style={{boxShadow: '8px 8px 0px #000'}}>
@@ -892,7 +892,7 @@ export default function GameBoard() {
                 <button className="btn text-sm md:text-xl px-6 md:px-8 py-3 md:py-4 mt-4 md:mt-8 flex-shrink-0 shadow-[4px_4px_0px_#000]" onClick={hideTutorial}>Torna al Gioco</button>
             </div>
 
-            {/* Terrain Activation Overlay */}
+            {/* Overlay Attivazione Terreno */}
             <div id="terrain-overlay" className="fixed inset-0 hidden z-[90] bg-purple-900/80 flex-col justify-center items-center opacity-0 transition-opacity duration-500 backdrop-blur-md">
                 <h2 className="text-2xl md:text-4xl text-purple-400 frazetta-title mb-[60px] md:mb-[120px] text-shadow-[2px_2px_0px_#000] animate-pulse text-center px-4">CARTA TERRENO ATTIVATA</h2>
                 <div id="terrain-container" className="drop-shadow-[0_0_40px_rgba(128,0,128,0.8)] scale-[1.8] sm:scale-[3.5]"></div>

@@ -124,7 +124,7 @@ export default function App() {
         }
       />
 
-      {/* ── Dev Sandbox (hidden) ────────────── */}
+      {/* ── Dev Sandbox (nascosto) ──────────── */}
       <Route
         path="/dev-game"
         element={

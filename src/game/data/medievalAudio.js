@@ -1,8 +1,8 @@
 /*
- * medievalAudio.js — Dark Fantasy atmospheric audio system.
- * Uses Web Audio API to generate heavy, medieval-themed sounds:
- * parchment rustling, bell tolls, metal scraping, armor clanking.
- * NO 8-bit sounds.
+ * medievalAudio.js — Sistema audio atmosferico Dark Fantasy.
+ * Usa Web Audio API per generare suoni pesanti a tema medievale:
+ * fruscio di pergamena, rintocchi di campana, strisciamento metallico, clangor di armatura.
+ * NESSUN suono 8-bit.
  */
 
 let audioCtx = null;
@@ -22,7 +22,7 @@ function createNoiseBuffer(ctx, duration, type = 'white') {
   for (let i = 0; i < bufferSize; i++) {
     const white = Math.random() * 2 - 1;
     if (type === 'brown') {
-      // Brown noise — deeper, rumbling
+      // Rumore marrone — più profondo, rimbombante
       b0 = (b0 + (0.02 * white)) / 1.02;
       data[i] = b0 * 3.5;
     } else if (type === 'pink') {
@@ -75,7 +75,7 @@ function playBellToll(ctx) {
     osc.connect(gain).connect(ctx.destination);
     osc.start(t); osc.stop(t + 2.5);
   });
-  // Metallic shimmer
+  // Luccichio metallico
   const noise = ctx.createBufferSource();
   noise.buffer = createNoiseBuffer(ctx, 0.3, 'white');
   const bp = ctx.createBiquadFilter();
@@ -119,7 +119,7 @@ function playArmorClank(ctx) {
     osc.connect(g).connect(ctx.destination);
     osc.start(t); osc.stop(t + 0.12);
   });
-  // Impact thud
+  // Tonfo d'impatto
   const osc2 = ctx.createOscillator();
   osc2.type = 'sine';
   osc2.frequency.setValueAtTime(80, t);
@@ -134,7 +134,7 @@ function playArmorClank(ctx) {
 /* ── Pack seal breaking (wax seal crack + reveal) ── */
 function playPackOpen(ctx) {
   const t = ctx.currentTime;
-  // Sharp crack
+  // Schiocco secco
   const noise = ctx.createBufferSource();
   noise.buffer = createNoiseBuffer(ctx, 0.15, 'white');
   const bp = ctx.createBiquadFilter();
@@ -144,7 +144,7 @@ function playPackOpen(ctx) {
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
   noise.connect(bp).connect(g).connect(ctx.destination);
   noise.start(t); noise.stop(t + 0.15);
-  // Resonant boom after crack
+  // Rimbombo risonante dopo lo schiocco
   const osc = ctx.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(120, t + 0.05);
@@ -175,7 +175,7 @@ function playCardReveal(ctx) {
 /* ── Legendary card fanfare ───────────────────────── */
 function playLegendaryReveal(ctx) {
   const t = ctx.currentTime;
-  // Deep horn
+  // Corno profondo
   const osc = ctx.createOscillator();
   osc.type = 'sawtooth';
   osc.frequency.setValueAtTime(65, t);
@@ -188,7 +188,7 @@ function playLegendaryReveal(ctx) {
   g.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
   osc.connect(lp).connect(g).connect(ctx.destination);
   osc.start(t); osc.stop(t + 1.5);
-  // Ascending chimes
+  // Carillon ascendente
   [262, 330, 392, 523, 659].forEach((freq, i) => {
     const osc2 = ctx.createOscillator();
     osc2.type = 'sine';
@@ -205,7 +205,7 @@ function playLegendaryReveal(ctx) {
 /* ── Save/confirm (heavy stamp) ───────────────────── */
 function playSave(ctx) {
   const t = ctx.currentTime;
-  // Thud
+  // Tonfo
   const osc = ctx.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(100, t);
@@ -215,7 +215,7 @@ function playSave(ctx) {
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
   osc.connect(g).connect(ctx.destination);
   osc.start(t); osc.stop(t + 0.25);
-  // Resonance
+  // Risonanza
   const osc2 = ctx.createOscillator();
   osc2.type = 'triangle';
   osc2.frequency.value = 200;
@@ -293,6 +293,6 @@ export function playMedievalSound(type) {
     const fn = SOUNDS[type];
     if (fn) fn(ctx);
   } catch {
-    // Audio not available — silent fail
+    // Audio non disponibile — fallimento silenzioso
   }
 }

@@ -58,27 +58,27 @@ function HeraldicBadge({ tier }) {
   return (
     <div className="absolute -top-1 -right-1 z-10" title={`Tier ${b.label}`}>
       <svg width="28" height="32" viewBox="0 0 28 32">
-        {/* Shield shape */}
+        {/* Forma dello scudo */}
         <path
           d="M14 1 L26 5 L26 16 Q26 26 14 31 Q2 26 2 16 L2 5 Z"
           fill={b.base}
           stroke={b.accent}
           strokeWidth="1.5"
         />
-        {/* Inner plate */}
+        {/* Piastra interna */}
         <path
           d="M14 4 L23 7 L23 15 Q23 23 14 27 Q5 23 5 15 L5 7 Z"
           fill={b.inner}
           stroke={b.accent}
           strokeWidth="0.5"
         />
-        {/* Shine highlight */}
+        {/* Riflesso di luce */}
         <path
           d="M8 7 L14 5 L14 14 L8 12 Z"
           fill={b.shine}
           opacity="0.15"
         />
-        {/* Tier number */}
+        {/* Numero tier */}
         <text
           x="14" y="18"
           textAnchor="middle"
@@ -112,13 +112,13 @@ export default function Lobby() {
   const tier = profile?.subscription_tier;
   const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
 
-  // Load pending packs
+  // Carica i pacchetti in sospeso
   useEffect(() => {
     if (!user) return;
     getPendingPacks(user.id).then(setPendingPacks);
   }, [user]);
 
-  // Check if starter chest needs to be shown
+  // Controlla se il forziere iniziale deve essere mostrato
   useEffect(() => {
     if (!user) return;
     hasClaimedStarter(user.id).then(claimed => {
@@ -138,7 +138,7 @@ export default function Lobby() {
 
   const handlePackClosed = useCallback(() => {
     setOpeningPack(null);
-    // Refresh packs list
+    // Aggiorna la lista dei pacchetti
     if (user) getPendingPacks(user.id).then(setPendingPacks);
   }, [user]);
 
@@ -148,10 +148,10 @@ export default function Lobby() {
 
       <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          {/* ── Player Info (compact, no paperdoll) ── */}
+          {/* ── Info Giocatore (compatto, senza paperdoll) ── */}
           <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-6 sm:p-8 mb-8">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-              {/* Avatar with heraldic badge */}
+              {/* Avatar con stemma araldico */}
               <div className="relative shrink-0">
                 <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-fantasy-gold/30 to-fantasy-purple/30 flex items-center justify-center text-4xl overflow-hidden ${
                   tier === 'tier-3' ? 'border-3 border-fantasy-purple-light shadow-[0_0_20px_rgba(107,63,160,0.4)]'
@@ -176,7 +176,7 @@ export default function Lobby() {
                     {profile.faction === 'cavalieri' ? '⚔️ I Cavalieri' : '💀 I Non Morti'}
                   </p>
                 )}
-                {/* Stats row */}
+                {/* Riga statistiche */}
                 <div className="flex flex-wrap justify-center sm:justify-start gap-5 text-sm">
                   <div>
                     <span className="text-fantasy-silver text-xs">Vittorie</span>
@@ -203,7 +203,7 @@ export default function Lobby() {
             </div>
           </div>
 
-          {/* ── Pending Packs (if any) ─────────────── */}
+          {/* ── Pacchetti in Sospeso (se presenti) ──────── */}
           {pendingPacks.length > 0 && (
             <div className="bg-gradient-to-r from-fantasy-gold/5 to-fantasy-purple/5 border border-fantasy-gold/30 rounded-2xl p-5 mb-8">
               <div className="flex items-center gap-3 mb-4">
@@ -236,7 +236,7 @@ export default function Lobby() {
             </div>
           )}
 
-          {/* ── Quick Actions Grid ─────────────────── */}
+          {/* ── Griglia Azioni Rapide ──────────────────── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {QUICK_ACTIONS.map((action) => (
               <Link
@@ -253,7 +253,7 @@ export default function Lobby() {
             ))}
           </div>
 
-          {/* ── Play Buttons ────────────────────────── */}
+          {/* ── Pulsanti Gioca ──────────────────────────── */}
           <div className="mt-10 flex flex-col items-center gap-4">
             <Link
               to="/play"
@@ -274,7 +274,7 @@ export default function Lobby() {
         </div>
       </div>
 
-      {/* ── Pack Opening Overlay ─────────────────── */}
+      {/* ── Overlay Apertura Pacchetto ──────────── */}
       <AnimatePresence>
         {openingPack && (
           <PackOpening
@@ -286,7 +286,7 @@ export default function Lobby() {
         )}
       </AnimatePresence>
 
-      {/* ── Starter Chest Overlay ─────────────────── */}
+      {/* ── Overlay Forziere Iniziale ──────────────── */}
       <AnimatePresence>
         {showStarterChest && (
           <ChestOpening

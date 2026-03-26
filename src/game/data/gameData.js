@@ -1,4 +1,4 @@
-// --- DATI E GENERAZIONE CARTE (copia esatta da A&Wmobile.html) ---
+// --- DATI E GENERAZIONE CARTE ---
 
 export const knightNames = [ "Gothmog", "Kull", "Vanguard", "Draken", "Tark", "Gorluk", "Azrael", "Morbus", "Vornik", "Zarak", "Ragnar", "Kaelen" ];
 export const weaponNames = [ "Spada Sanguinaria", "Ascia del Boia", "Mazza Devastante", "Lama Oscura", "Spadone di Ferro", "Falce Animica" ];
@@ -23,7 +23,7 @@ export const terrainDefs = [
     { id: 'riflesso', name: 'Riflesso', cu: 0, desc: 'Nemico clone tuo cavaliere (3T)' }
 ];
 
-// Pixel Arts (16x12)
+// Pixel Art (16x12)
 export const pixelArtsKnights = [ [ "   X        X   ", "  XX        XX  ", "  X          X  ", " ###        ### ", " @@@@@@@@@@@@@@ ", " ### O #### O # ", " ############## ", "  ############  ", "   ##########   ", "    ##    ##    ", "    ##    ##    ", "   ###    ###   " ] ];
 export const pixelArtsWeapons = [ [ "       X        ", "      XXX       ", "      XXX       ", "      XXX       ", "      XXX       ", "      XXX       ", "     XXXXX      ", "    XXXXXXX     ", "       #        ", "       #        ", "       #        ", "      ###       " ] ];
 export const pixelArtsShields = [ [ "                ", "     XXXXXX     ", "    XX####XX    ", "   XX######XX   ", "   XX######XX   ", "   XX######XX   ", "   XX######XX   ", "    XX####XX    ", "     XX##XX     ", "      XXXX      ", "       XX       ", "                " ] ];

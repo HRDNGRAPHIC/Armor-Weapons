@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 
 const FOOTER_LINKS = [
   {
@@ -38,7 +38,7 @@ export default function Footer() {
     <footer className="bg-fantasy-darker border-t border-fantasy-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* ── Brand Column ──────────────────────────── */}
+          {/* ── Colonna Brand ─────────────────────────── */}
           <div>
             <h3 className="text-gold-gradient font-display font-bold text-lg mb-4">
               Armor&nbsp;&amp;&nbsp;Weapons
@@ -48,7 +48,7 @@ export default function Footer() {
               Costruisci il tuo mazzo, sfida i tuoi avversari,
               conquista la classifica.
             </p>
-            {/* Social Icons */}
+            {/* Icone social */}
             <div className="flex gap-3 mt-5">
               {SOCIAL_ICONS.map((s) => (
                 <a
@@ -67,7 +67,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* ── Link Columns ──────────────────────────── */}
+          {/* ── Colonne Link ──────────────────────────── */}
           {FOOTER_LINKS.map((group) => (
             <div key={group.title}>
               <h4 className="text-white font-display font-semibold text-sm uppercase tracking-wider mb-4">
@@ -89,7 +89,7 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* ── Bottom Bar ──────────────────────────────── */}
+        {/* ── Barra inferiore ──────────────────────────── */}
         <div className="mt-12 pt-8 border-t border-fantasy-border flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-fantasy-silver text-xs">
             &copy; {new Date().getFullYear()} Armor &amp; Weapons. Tutti i diritti riservati.

@@ -1,9 +1,9 @@
-/**
- * GameBoardDev.jsx — Sandbox copy of GameBoard.
- * Identical game logic, but:
- *   1. forwardRef + useImperativeHandle → exposes cheat actions to DevToolsPanel
- *   2. onStateChange callback → streams live state to the inspector
- *   3. NO ELO / gold recording (sandbox-safe)
+﻿/**
+ * GameBoardDev.jsx — Copia sandbox di GameBoard.
+ * Logica di gioco identica, ma:
+ *   1. forwardRef + useImperativeHandle → espone azioni cheat al DevToolsPanel
+ *   2. callback onStateChange → trasmette lo stato live all'ispettore
+ *   3. NESSUNA registrazione di ELO / oro (sandbox-safe)
  */
 import { useEffect, useRef, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -112,7 +112,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         return containerRef.current.querySelector(`#${CSS.escape(id)}`);
     }, []);
 
-    // --- BUFF/TERRAIN LOGIC ---
+    // --- LOGICA BUFF/TERRENO ---
     const processBuffs = useCallback((playerNum) => {
         let state = stateRef.current;
         let pState = playerNum === 1 ? state.p1 : state.p2;
@@ -157,7 +157,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
 
     const getFinalStats = useCallback((playerNum) => { return getEffectiveStats(playerNum); }, [getEffectiveStats]);
 
-    // --- RENDER FUNCTIONS ---
+    // --- FUNZIONI DI RENDERING ---
     const renderCardHTML = useCallback((card, playerId = null, isZoom = false) => {
         if(!card) return '';
         let state = stateRef.current;
@@ -233,7 +233,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
             </div>`;
     }, []);
 
-    // --- UPDATE UI ---
+    // --- AGGIORNAMENTO UI ---
     const updateUI = useCallback(() => {
         let state = stateRef.current;
         const el = (id) => $(`${id}`);
@@ -276,7 +276,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         syncReactState();
     }, [$, renderCardHTML, renderWeaponHTML, syncReactState]);
 
-    // --- SHATTER CARD ---
+    // --- FRANTUMA CARTA ---
     const shatterCard = useCallback((cardEl) => {
         playSound('shatter'); const parent = cardEl.parentElement; cardEl.style.opacity = '0';
         const colors = ['#1a1a1a', '#8a0303', '#ff0000', '#000000', '#e2d1a3', '#8b4513'];
@@ -343,7 +343,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         if (state.isPaused) handleRightClick({ preventDefault: () => {} }, playerId);
     }, [handleRightClick]);
 
-    // --- ACTIVATE TERRAIN ---
+    // --- ATTIVA TERRENO ---
     const activateTerrain = useCallback((terrainCard, playerNum) => {
         let state = stateRef.current;
         return new Promise(resolve => {
@@ -362,7 +362,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         });
     }, [$, renderWeaponZoomHTML, applyRiflesso, updateUI]);
 
-    // --- DRAW CARD ---
+    // --- PESCA CARTA ---
     const drawCard = useCallback((playerNum, force = false) => {
         let state = stateRef.current;
         if (state.isPaused) return;
@@ -374,7 +374,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         playSound('draw'); updateUI(); animateDraw(`p${playerNum}-deck`, `card-${card.id}`);
     }, [applyRiflesso, updateUI, animateDraw]);
 
-    // --- DRAW SINGLE WEAPON ---
+    // --- PESCA SINGOLA ARMA ---
     const drawSingleWeaponRef = useRef(null);
     const drawSingleWeapon = useCallback(async (playerNum, targetSlotIndex) => {
         let state = stateRef.current;
@@ -387,7 +387,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
     }, [activateTerrain, updateUI, animateDraw]);
     drawSingleWeaponRef.current = drawSingleWeapon;
 
-    // --- DRAW WEAPON ---
+    // --- PESCA ARMA ---
     const drawWeapon = useCallback((playerNum) => {
         let state = stateRef.current;
         if (state.isPaused) return; let p = playerNum === 1 ? state.p1 : state.p2;
@@ -404,7 +404,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         processNextDraw();
     }, [activateTerrain, triggerError, updateUI, animateDraw]);
 
-    // --- CHECK WIN / GAME OVER (no ELO recording) ---
+    // --- CONTROLLA VITTORIA / FINE PARTITA (nessuna registrazione ELO) ---
     const showGameOver = useCallback(async (message) => {
         let state = stateRef.current;
         state.gameOver = true;
@@ -412,7 +412,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         const winnerText = $('winner-text'); const gameOverScreen = $('game-over-screen');
         if (winnerText) winnerText.innerText = message;
         if (gameOverScreen) { gameOverScreen.classList.remove('hidden'); gameOverScreen.classList.add('flex'); }
-        // Sandbox: no ELO / gold recording
+        // Sandbox: nessuna registrazione ELO / oro
     }, [$, syncReactState]);
 
     const abandonGame = useCallback(async () => {
@@ -421,7 +421,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         state.gameOver = true; state.isPaused = false; syncReactState();
         const pauseMenu = $('pause-menu');
         if (pauseMenu) { pauseMenu.classList.add('hidden'); pauseMenu.classList.remove('flex'); }
-        // Sandbox: no ELO recording
+        // Sandbox: nessuna registrazione ELO
         navigate('/lobby');
     }, [$, navigate, syncReactState]);
 
@@ -434,7 +434,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         else if (p2Lost) showGameOver("IL GIOCATORE 1 TRIONFA!");
     }, [showGameOver]);
 
-    // --- EQUIP WEAPON ---
+    // --- EQUIPAGGIA ARMA ---
     const equipWeaponRef = useRef(null);
     const equipWeapon = useCallback((playerNum, slotIndex) => {
         let state = stateRef.current;
@@ -481,7 +481,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
     }, [$, zoomWeapon, triggerError, shatterCard, updateUI]);
     equipWeaponRef.current = equipWeapon;
 
-    // --- DISCARD WEAPON ---
+    // --- SCARTA ARMA ---
     const discardWeaponRef = useRef(null);
     const discardWeapon = useCallback((event, playerNum, slotIndex) => {
         let state = stateRef.current;
@@ -497,7 +497,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
     }, [$, zoomWeapon, shatterCard, updateUI]);
     discardWeaponRef.current = discardWeapon;
 
-    // --- END TURN ---
+    // --- FINE TURNO ---
     const endTurnRef = useRef(null);
     const endTurn = useCallback((playerNum) => {
         let state = stateRef.current;
@@ -524,7 +524,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
     }, [processBuffs, updateUI]);
     endTurnRef.current = endTurn;
 
-    // --- ATTACK ---
+    // --- ATTACCO ---
     const attack = useCallback((playerNum) => {
         let state = stateRef.current;
         if (state.isPaused) return;
@@ -552,7 +552,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         } else { setTimeout(() => { updateUI(); if (!state.gameOver) endTurnRef.current(playerNum); }, animDur); }
     }, [$, getFinalStats, triggerError, shatterCard, updateUI, checkWinCondition, syncReactState]);
 
-    // --- AI TURN ---
+    // --- TURNO AI ---
     const checkPause = useCallback(async () => { while (stateRef.current.isPaused) await wait(200); }, []);
 
     const playAITurnRef = useRef(null);
@@ -590,7 +590,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
     }, [$, checkPause, drawCard, drawWeapon, attack]);
     playAITurnRef.current = playAITurn;
 
-    // --- PAUSE & TUTORIAL ---
+    // --- PAUSA E TUTORIAL ---
     const togglePause = useCallback(() => {
         let state = stateRef.current;
         if (state.gameOver || state.isInitializing) return;
@@ -615,7 +615,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         if (state.isPaused) { const pauseMenu = $('pause-menu'); if (pauseMenu) { pauseMenu.classList.remove('hidden'); pauseMenu.classList.add('flex'); } }
     }, [$]);
 
-    // --- RE-BIND HANDLERS ---
+    // --- RIAGGANCIA HANDLER ---
     const rebindWeaponHandlers = useCallback(() => {
         if (!containerRef.current) return;
         for (let playerNum = 1; playerNum <= 2; playerNum++) {
@@ -638,7 +638,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         }
     }, [$, handleKnightClick, handleRightClick]);
 
-    // --- INIT GAME ---
+    // --- INIZIALIZZA PARTITA ---
     const initGame = useCallback(async () => {
         let state = stateRef.current;
         state.turn = 1; state.hasAttacked = false; state.gameOver = false; state.isInitializing = true; state.isPaused = false;
@@ -660,7 +660,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         finally { state.isInitializing = false; updateUI(); }
     }, [$, updateUI, drawCard, location.state]);
 
-    // --- KEYBOARD ---
+    // --- TASTIERA ---
     useEffect(() => {
         const handler = (e) => {
             let state = stateRef.current;
@@ -681,7 +681,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
         setTimeout(() => initGame(), 100);
     }, [initGame]);
 
-    // --- AI TRIGGER ---
+    // --- TRIGGER AI ---
     useEffect(() => {
         if (reactTurn === 2 && !reactOver && !reactInit) playAITurnRef.current();
     }, [reactTurn, reactOver, reactInit]);
@@ -795,7 +795,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
                 </section>
             </main>
 
-            {/* Game Over */}
+            {/* Fine Partita */}
             <div id="game-over-screen" className="fixed inset-0 hidden flex-col justify-center items-center z-50 bg-black/90" style={{backgroundImage: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)', backgroundSize: '100% 4px'}}>
                 <h1 id="winner-text" className="text-3xl md:text-6xl text-red-600 frazetta-title mb-8 text-shadow-lg text-center px-4">VITTORIA!</h1>
                 <div className="flex flex-col gap-4">
@@ -804,13 +804,13 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
                 </div>
             </div>
 
-            {/* Zoom */}
+            {/* Zoom carta */}
             <div id="zoom-overlay" className="fixed inset-0 hidden z-[100] bg-black/90 flex-col justify-center items-center cursor-pointer backdrop-blur-sm opacity-0 transition-opacity duration-300" onClick={closeZoom}>
                 <div id="zoom-container" className="zoom-container drop-shadow-[0_0_40px_rgba(138,3,3,0.6)] pointer-events-none"></div>
                 <div className="absolute bottom-10 text-gray-400 text-[0.6rem] md:text-sm animate-pulse text-center w-full">Tocca ovunque per chiudere</div>
             </div>
 
-            {/* Pause */}
+            {/* Pausa */}
             <div id="pause-menu" className="fixed inset-0 hidden z-[110] bg-black/80 flex-col justify-center items-center backdrop-blur-sm">
                 <h2 className="text-4xl md:text-6xl text-red-600 frazetta-title mb-8 md:mb-12 text-shadow-lg">PAUSA</h2>
                 <button className="btn text-xl md:text-2xl px-8 py-4 mb-4 md:mb-6 w-64 md:w-80 shadow-[4px_4px_0px_#000]" onClick={togglePause}>Riprendi</button>
@@ -835,7 +835,7 @@ const GameBoardDev = forwardRef(function GameBoardDev({ onStateChange }, ref) {
                 <button className="btn text-sm md:text-xl px-6 md:px-8 py-3 md:py-4 mt-4 md:mt-8 flex-shrink-0 shadow-[4px_4px_0px_#000]" onClick={hideTutorial}>Torna al Gioco</button>
             </div>
 
-            {/* Terrain Overlay */}
+            {/* Sovrapposizione Terreno */}
             <div id="terrain-overlay" className="fixed inset-0 hidden z-[90] bg-purple-900/80 flex-col justify-center items-center opacity-0 transition-opacity duration-500 backdrop-blur-md">
                 <h2 className="text-2xl md:text-4xl text-purple-400 frazetta-title mb-[60px] md:mb-[120px] text-shadow-[2px_2px_0px_#000] animate-pulse text-center px-4">CARTA TERRENO ATTIVATA</h2>
                 <div id="terrain-container" className="drop-shadow-[0_0_40px_rgba(128,0,128,0.8)] scale-[1.8] sm:scale-[3.5]"></div>

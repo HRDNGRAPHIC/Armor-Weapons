@@ -1,8 +1,8 @@
 /**
- * LoadingCoin.jsx — 3D spinning coin intro for /dev-game.
+ * LoadingCoin.jsx — Moneta 3D rotante come intro per /dev-game.
  *
- * GSAP timeline: fast spin → pause face A → fast spin → pause face B → fade out.
- * Total duration: exactly 6 seconds.
+ * Timeline GSAP: rotazione veloce → pausa faccia A → rotazione veloce → pausa faccia B → dissolvenza.
+ * Durata totale: esattamente 6 secondi.
  */
 import { useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
@@ -13,9 +13,9 @@ const COIN_HEIGHT  = 0.08;
 const COIN_SEGMENTS = 48;
 
 /* ── Colors ── */
-const GOLD_MAIN   = '#b8860b';  // dark goldenrod
-const GOLD_RIM    = '#8b6914';  // aged/rusted gold edge
-const GOLD_FACE   = '#daa520';  // goldenrod highlight
+const GOLD_MAIN   = '#b8860b';  // oro scuro brunito
+const GOLD_RIM    = '#8b6914';  // bordo oro invecchiato/arrugginito
+const GOLD_FACE   = '#daa520';  // riflesso oro
 
 export default function LoadingCoin({ onComplete }) {
   const groupRef = useRef();
@@ -34,33 +34,33 @@ export default function LoadingCoin({ onComplete }) {
       onComplete: () => onComplete?.(),
     });
 
-    /* Phase 1: fast spin (0 → 1.2s) — ~3 full rotations */
+    /* Fase 1: rotazione veloce (0 → 1.2s) — ~3 giri completi */
     tl.to(g.rotation, {
       y: Math.PI * 6,
       duration: 1.2,
       ease: 'power2.inOut',
     });
 
-    /* Phase 2: dramatic pause on face A (1.2 → 3.2s) */
+    /* Fase 2: pausa drammatica sulla faccia A (1.2 → 3.2s) */
     tl.to(g.rotation, {
-      y: Math.PI * 6,       // hold position
+      y: Math.PI * 6,       // mantieni posizione
       duration: 2.0,
     });
 
-    /* Phase 3: fast spin again (3.2 → 4.0s) — 2 rotations to flip side */
+    /* Fase 3: rotazione veloce di nuovo (3.2 → 4.0s) — 2 giri per girare lato */
     tl.to(g.rotation, {
-      y: Math.PI * 6 + Math.PI * 3, // land on opposite face
+      y: Math.PI * 6 + Math.PI * 3, // atterra sulla faccia opposta
       duration: 0.8,
       ease: 'power2.inOut',
     });
 
-    /* Phase 4: dramatic pause on face B (4.0 → 5.2s) */
+    /* Fase 4: pausa drammatica sulla faccia B (4.0 → 5.2s) */
     tl.to(g.rotation, {
       y: Math.PI * 6 + Math.PI * 3,
       duration: 1.2,
     });
 
-    /* Phase 5: fade out + zoom (5.2 → 6.0s) */
+    /* Fase 5: dissolvenza + zoom (5.2 → 6.0s) */
     tl.to(g.scale, {
       x: 0.01, y: 0.01, z: 0.01,
       duration: 0.8,
@@ -77,7 +77,7 @@ export default function LoadingCoin({ onComplete }) {
 
   return (
     <group ref={groupRef}>
-      {/* Main coin body */}
+      {/* Corpo principale della moneta */}
       <mesh castShadow>
         <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_HEIGHT, COIN_SEGMENTS]} />
         <meshStandardMaterial
@@ -89,7 +89,7 @@ export default function LoadingCoin({ onComplete }) {
         />
       </mesh>
 
-      {/* Face A — embossed spade symbol */}
+      {/* Faccia A — simbolo picca in rilievo */}
       <mesh position={[0, COIN_HEIGHT / 2 + 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[COIN_RADIUS * 0.85, COIN_SEGMENTS]} />
         <meshStandardMaterial
@@ -100,7 +100,7 @@ export default function LoadingCoin({ onComplete }) {
         />
       </mesh>
 
-      {/* Face B — embossed shield */}
+      {/* Faccia B — scudo in rilievo */}
       <mesh position={[0, -COIN_HEIGHT / 2 - 0.001, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <circleGeometry args={[COIN_RADIUS * 0.85, COIN_SEGMENTS]} />
         <meshStandardMaterial
@@ -111,7 +111,7 @@ export default function LoadingCoin({ onComplete }) {
         />
       </mesh>
 
-      {/* Rim highlight ring */}
+      {/* Anello di riflesso sul bordo */}
       <mesh>
         <torusGeometry args={[COIN_RADIUS, COIN_HEIGHT * 0.35, 8, COIN_SEGMENTS]} />
         <meshStandardMaterial

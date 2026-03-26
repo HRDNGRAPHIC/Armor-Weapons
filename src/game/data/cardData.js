@@ -1,6 +1,6 @@
 /*
- * cardData.js — Catalog for Collection, DeckBuilder, PackOpening pages.
- * Uses the same names/data from gameData.js to stay consistent.
+ * cardData.js — Catalogo per le pagine Collection, DeckBuilder, PackOpening.
+ * Usa gli stessi nomi/dati da gameData.js per coerenza.
  */
 import {
     knightNames, weaponNames, shieldNames, itemDefs, terrainDefs,
@@ -32,7 +32,7 @@ function rFor(i, len) {
 
 const catalog = [];
 
-// Knights
+// Cavalieri
 knightNames.forEach((name, i) => {
     catalog.push({
         catalogId: `knight_${i}`,
@@ -46,7 +46,7 @@ knightNames.forEach((name, i) => {
     });
 });
 
-// Weapons
+// Armi
 weaponNames.forEach((name, i) => {
     catalog.push({
         catalogId: `weapon_${i}`,
@@ -58,7 +58,7 @@ weaponNames.forEach((name, i) => {
     });
 });
 
-// Shields
+// Scudi
 shieldNames.forEach((name, i) => {
     catalog.push({
         catalogId: `shield_${i}`,
@@ -70,7 +70,7 @@ shieldNames.forEach((name, i) => {
     });
 });
 
-// Items
+// Oggetti
 itemDefs.forEach((def, i) => {
     catalog.push({
         catalogId: `item_${i}`,
@@ -82,7 +82,7 @@ itemDefs.forEach((def, i) => {
     });
 });
 
-// Terrains
+// Terreni
 terrainDefs.forEach((def, i) => {
     catalog.push({
         catalogId: `terrain_${i}`,

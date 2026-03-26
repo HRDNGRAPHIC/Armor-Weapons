@@ -40,7 +40,7 @@ export default function Leaderboard() {
             <div className="text-center text-fantasy-silver py-16 text-lg">Nessun giocatore in classifica.</div>
           ) : (
             <div className="bg-fantasy-card border border-fantasy-border rounded-2xl overflow-hidden">
-              {/* Header */}
+              {/* Intestazione */}
               <div className="grid grid-cols-6 gap-2 px-4 sm:px-6 py-3 bg-fantasy-dark text-fantasy-silver text-xs font-semibold uppercase tracking-wider">
                 <div>#</div>
                 <div className="col-span-2">Giocatore</div>
@@ -49,7 +49,7 @@ export default function Leaderboard() {
                 <div className="text-center">Livello</div>
               </div>
 
-              {/* Rows */}
+              {/* Righe */}
               {players.map((player, i) => {
                 const rank = i + 1;
                 const isMe = user && player.id === user.id;

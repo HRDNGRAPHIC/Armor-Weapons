@@ -1,6 +1,6 @@
 /*
- * elo.js — ELO ranking + gold economy service.
- * Uses the profiles table on Supabase.
+ * elo.js — Servizio classifica ELO + economia oro.
+ * Usa la tabella profiles su Supabase.
  */
 import { supabase } from './supabase';
 
@@ -8,49 +8,49 @@ const K_FACTOR = 20;
 const DEFAULT_ELO = 100;
 export const GOLD_PER_WIN = 5;
 
-// AI ELO varies by "difficulty" — for now a fixed value
+// L'ELO dell'IA varia per "difficoltà" — per ora un valore fisso
 const AI_ELO = 100;
 
 /**
- * Calculate expected score (Chess.com style).
+ * Calcola il punteggio atteso (stile Chess.com).
  * @param {number} playerElo
  * @param {number} opponentElo
- * @returns {number} expected score 0-1
+ * @returns {number} punteggio atteso 0-1
  */
 function expectedScore(playerElo, opponentElo) {
   return 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
 }
 
 /**
- * Calculate new ELO after a game.
+ * Calcola il nuovo ELO dopo una partita.
  * @param {number} currentElo
  * @param {number} opponentElo
- * @param {number} result — 1 = win, 0 = loss, 0.5 = draw
- * @returns {number} new ELO (clamped to min 0, change capped ±10)
+ * @param {number} result — 1 = vittoria, 0 = sconfitta, 0.5 = pareggio
+ * @returns {number} nuovo ELO (minimo 0, variazione limitata ±10)
  */
 export function calculateNewElo(currentElo, opponentElo, result) {
   const expected = expectedScore(currentElo, opponentElo);
   let delta = Math.round(K_FACTOR * (result - expected));
-  // Cap variation to ±10
+  // Limita la variazione a ±10
   delta = Math.max(-10, Math.min(10, delta));
   return Math.max(0, currentElo + delta);
 }
 
-// PvE static ELO deltas
+// Delta ELO statici per PvE
 const PVE_WIN_DELTA = 3;
 const PVE_LOSS_DELTA = -5;
 
 /**
- * Record a game result: update ELO, wins/losses, gold.
+ * Registra il risultato di una partita: aggiorna ELO, vittorie/sconfitte, oro.
  * @param {string} userId
  * @param {'win'|'loss'|'draw'|'abandon'} outcome
- * @param {'pve'|'pvp'} mode — game mode
- * @returns {Object|null} updated profile row
+ * @param {'pve'|'pvp'} mode — modalità di gioco
+ * @returns {Object|null} riga del profilo aggiornata
  */
 export async function recordGameResult(userId, outcome, mode = 'pve') {
   if (!supabase || !userId) return null;
 
-  // Fetch current profile
+  // Carica il profilo corrente
   const { data: profile, error: fetchErr } = await supabase
     .from('profiles')
     .select('elo, wins, losses')
@@ -69,17 +69,17 @@ export async function recordGameResult(userId, outcome, mode = 'pve') {
   let result;
   if (outcome === 'win') result = 1;
   else if (outcome === 'draw') result = 0.5;
-  else result = 0; // loss or abandon
+  else result = 0; // sconfitta o abbandono
 
   let newElo;
   if (mode === 'pve') {
-    // PvE: static delta (+3 win, -5 loss/abandon, 0 draw)
+    // PvE: delta statico (+3 vittoria, -5 sconfitta/abbandono, 0 pareggio)
     const delta = outcome === 'win' ? PVE_WIN_DELTA
       : (outcome === 'loss' || outcome === 'abandon') ? PVE_LOSS_DELTA
       : 0;
     newElo = Math.max(0, currentElo + delta);
   } else {
-    // PvP: Chess.com formula
+    // PvP: formula Chess.com
     newElo = calculateNewElo(currentElo, AI_ELO, result);
   }
   const updates = {

@@ -162,23 +162,23 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
     if (claiming || !user) return;
     setClaiming(true);
 
-    // Phase: shaking — metallic rattling
+    // Fase: tremito — tintinnio metallico
     playMedievalSound('metal');
     setPhase('shaking');
     await new Promise(r => setTimeout(r, 800));
     playMedievalSound('armor');
     await new Promise(r => setTimeout(r, 1200));
 
-    // Phase: opening burst — heavy seal break
+    // Fase: apertura esplosiva — rottura del sigillo pesante
     playMedievalSound('packOpen');
     setPhase('opening');
     await new Promise(r => setTimeout(r, 1800));
 
-    // Claim the chest from Supabase
+    // Riscatta il forziere da Supabase
     const cards = await claimStarterChest(user.id);
     setStarterCards(cards);
 
-    // Pick 5-6 representative cards (prioritize higher rarity)
+    // Seleziona 5-6 carte rappresentative (priorità alla rarità elevata)
     const catalogIds = cards.map(c => c.catalogId);
     const unique = [...new Set(catalogIds)];
     const display = unique
@@ -193,7 +193,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
 
     playMedievalSound('armor');
 
-    // Phase: reveal — flying cards from chest mouth
+    // Fase: rivelazione — carte volanti dalla bocca del forziere
     setPhase('reveal');
     await new Promise(r => setTimeout(r, display.length * 150 + 2000));
 
@@ -216,14 +216,14 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
     >
-      {/* Backdrop */}
+      {/* Sfondo */}
       <div className="absolute inset-0 bg-black/90 backdrop-blur-md" />
 
-      {/* Particle effects during opening & reveal */}
+      {/* Effetti particellari durante l'apertura e la rivelazione */}
       <ChestParticles active={phase === 'opening' || phase === 'reveal'} />
       <LightBeams active={phase === 'opening'} />
 
-      {/* Content */}
+      {/* Contenuto */}
       <div className="relative z-30 flex flex-col items-center">
         {/* ═══ SEALED CHEST — Real asset ═══ */}
         {phase === 'sealed' && (
@@ -285,7 +285,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
               animate={{ scale: [1.1, 1.3, 1.15], opacity: [0, 1, 1] }}
               transition={{ duration: 1.5, ease: 'easeOut' }}
             />
-            {/* Golden radial glow */}
+            {/* Bagliore radiale dorato */}
             <motion.div
               className="absolute inset-0 pointer-events-none"
               style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.4) 0%, transparent 70%)' }}
@@ -299,7 +299,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
         {/* ═══ REVEAL — Open chest + flying cards from its mouth ═══ */}
         {phase === 'reveal' && (
           <div className="relative flex flex-col items-center">
-            {/* Open chest stays visible */}
+            {/* Il forziere aperto rimane visibile */}
             <motion.img
               src={bauleAperto}
               alt="Forziere aperto"
@@ -309,7 +309,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
               animate={{ scale: 1 }}
               transition={{ duration: 0.5 }}
             />
-            {/* Cards fly out from chest */}
+            {/* Le carte volano fuori dal forziere */}
             <div className="absolute w-80 h-80 flex items-center justify-center" style={{ top: '-80px' }}>
               {displayCards.map((card, i) => (
                 <FlyingCard key={card.catalogId} card={card} index={i} total={displayCards.length} />
@@ -343,7 +343,7 @@ export default function ChestOpening({ onClose, onCardsAdded }) {
                 50 carte sono state aggiunte alla tua collezione.
               </p>
 
-              {/* Preview grid of the shown cards */}
+              {/* Griglia anteprima delle carte mostrate */}
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-6">
                 {displayCards.map(card => {
                   const colors = RARITY_COLORS[card.rarity?.id ?? 'comune'];

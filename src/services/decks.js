@@ -1,13 +1,13 @@
 /*
- * decks.js — Supabase service for user_decks table.
- * Manages saved deck loadouts with full persistence.
+ * decks.js — Servizio Supabase per la tabella user_decks.
+ * Gestisce i mazzi salvati con persistenza completa.
  */
 import { supabase } from './supabase';
 
 /**
- * Fetch all decks for a user.
- * Returns array of { id, user_id, name, knights, cards, created_at, updated_at }
- * knights and cards are JSON arrays of catalogIds.
+ * Ottieni tutti i mazzi di un utente.
+ * Restituisce array di { id, user_id, name, knights, cards, created_at, updated_at }
+ * knights e cards sono array JSON di catalogId.
  */
 export async function getUserDecks(userId) {
   if (!supabase || !userId) return [];
@@ -25,10 +25,10 @@ export async function getUserDecks(userId) {
 }
 
 /**
- * Save a new deck or update an existing one.
+ * Salva un nuovo mazzo o aggiorna uno esistente.
  * @param {string} userId
  * @param {Object} deck - { id?, name, knights: string[], cards: string[] }
- * @returns saved deck row or null
+ * @returns riga del mazzo salvato o null
  */
 export async function saveDeck(userId, deck) {
   if (!supabase || !userId) return null;
@@ -36,18 +36,18 @@ export async function saveDeck(userId, deck) {
   const payload = {
     user_id: userId,
     name: deck.name || 'Mazzo Senza Nome',
-    knights: deck.knights, // array of catalogIds
-    cards: deck.cards,     // array of catalogIds (can have duplicates)
+    knights: deck.knights, // array di catalogId
+    cards: deck.cards,     // array di catalogId (può avere duplicati)
     updated_at: new Date().toISOString(),
   };
 
   if (deck.id) {
-    // Update existing
+    // Aggiorna esistente
     const { data, error } = await supabase
       .from('user_decks')
       .update(payload)
       .eq('id', deck.id)
-      .eq('user_id', userId) // Security: ensure user owns the deck
+      .eq('user_id', userId) // Sicurezza: verifica che il mazzo appartenga all'utente
       .select()
       .single();
 
@@ -57,7 +57,7 @@ export async function saveDeck(userId, deck) {
     }
     return data;
   } else {
-    // Insert new
+    // Inserisci nuovo
     payload.created_at = new Date().toISOString();
     const { data, error } = await supabase
       .from('user_decks')
@@ -74,7 +74,7 @@ export async function saveDeck(userId, deck) {
 }
 
 /**
- * Delete a deck.
+ * Elimina un mazzo.
  */
 export async function deleteDeck(userId, deckId) {
   if (!supabase || !userId) return false;
@@ -92,8 +92,8 @@ export async function deleteDeck(userId, deckId) {
 }
 
 /**
- * Count how many times each catalogId is used across all user's saved decks.
- * Returns map: catalogId → total count across all decks.
+ * Conta quante volte ogni catalogId è usato in tutti i mazzi salvati dell'utente.
+ * Restituisce mappa: catalogId → conteggio totale su tutti i mazzi.
  */
 export async function getCardsInUse(userId) {
   const decks = await getUserDecks(userId);

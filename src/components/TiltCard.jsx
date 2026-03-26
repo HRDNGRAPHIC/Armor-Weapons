@@ -1,6 +1,6 @@
 /*
- * TiltCard.jsx — Aceternity-inspired 3D perspective tilt on hover.
- * Uses framer-motion for smooth rotateX/rotateY based on mouse position.
+ * TiltCard.jsx — Inclinazione prospettica 3D in stile Aceternity al passaggio del mouse.
+ * Usa framer-motion per smooth rotateX/rotateY basati sulla posizione del mouse.
  */
 import { useRef, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -16,7 +16,7 @@ export default function TiltCard({ children, className = '', style = {}, onClick
     const y = e.clientY - rect.top;
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-    // Max tilt: 15 degrees
+    // Inclinazione massima: 15 gradi
     const rotateX = ((y - centerY) / centerY) * -15;
     const rotateY = ((x - centerX) / centerX) * 15;
     setTilt({ rotateX, rotateY });

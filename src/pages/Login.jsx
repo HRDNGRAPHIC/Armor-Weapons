@@ -56,7 +56,7 @@ export default function Login() {
             </div>
           )}
 
-          {/* Google Login Button */}
+          {/* Pulsante Login con Google */}
           <button
             onClick={handleGoogleLogin}
             disabled={loading}

@@ -15,7 +15,7 @@ const AuthContext = createContext({
 
 /**
  * Garantisce che il profilo esista nel DB al primo login.
- * Retries up to 3 times with exponential backoff per gestire la race condition col trigger.
+ * Riprova fino a 3 volte con backoff esponenziale per gestire la race condition col trigger.
  */
 async function ensureProfile(u) {
   if (!u) return null;
@@ -35,7 +35,7 @@ async function ensureProfile(u) {
     } catch (err) {
       console.warn(`[Auth] ensureProfile attempt ${attempt + 1} failed:`, err.message);
     }
-    // Exponential backoff: 500ms → 1500ms → 4500ms
+    // Backoff esponenziale: 500ms → 1500ms → 4500ms
     await new Promise(r => setTimeout(r, 500 * Math.pow(3, attempt)));
   }
   return null;
@@ -49,7 +49,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(!!supabase);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Guard: prevent signOut → onAuthStateChange → loadProfile infinite loop
+  // Guardia: evita il loop infinito signOut → onAuthStateChange → loadProfile
   const signingOutRef = useRef(false);
   const goldRef = useRef(0);
 
@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
     if (user) await loadProfile(user);
   }, [user, loadProfile]);
 
-  // Realtime subscription for profile changes (gold, elo, wins, etc.)
+  // Sottoscrizione in tempo reale alle modifiche del profilo (oro, elo, vittorie, ecc.)
   useEffect(() => {
     if (!supabase || !user) return;
 
@@ -134,7 +134,7 @@ export function AuthProvider({ children }) {
         setSession(s);
         const u = s?.user ?? null;
         setUser(u);
-        // Profile loads asynchronously — non blocca il routing
+        // Profilo caricato in modo asincrono — non blocca il routing
         if (u) loadProfile(u);
       } catch (err) {
         console.error('[Auth] Session init error:', err);

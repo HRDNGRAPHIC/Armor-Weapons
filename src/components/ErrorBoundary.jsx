@@ -1,7 +1,7 @@
 import { Component } from 'react';
 
 /**
- * Catches any render crash and shows a recovery screen instead of a blank page.
+ * Intercetta qualsiasi crash di rendering e mostra una schermata di recupero invece di una pagina vuota.
  */
 export default class ErrorBoundary extends Component {
   constructor(props) {

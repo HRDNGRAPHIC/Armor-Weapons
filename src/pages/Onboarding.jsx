@@ -95,7 +95,7 @@ export default function Onboarding() {
 
       <div className="pt-24 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          {/* Header */}
+          {/* Intestazione */}
           <div className="text-center mb-14">
             <h1 className="font-display font-bold text-3xl sm:text-4xl text-white mb-3">
               Scegli il tuo <span className="text-gold-gradient">Piano</span>
@@ -109,7 +109,7 @@ export default function Onboarding() {
             <p className="text-center text-fantasy-red text-sm mb-6">{error}</p>
           )}
 
-          {/* Pricing Grid */}
+          {/* Griglia Prezzi */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
             {PLANS.map((plan) => (
               <div

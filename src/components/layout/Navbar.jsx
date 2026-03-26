@@ -28,7 +28,7 @@ export default function Navbar() {
 
   const links = user ? [...NAV_LINKS, ...AUTH_LINKS] : NAV_LINKS;
 
-  // Handle link clicks: hash links smooth scroll, Home scrolls to top
+  // Gestisci click sui link: hash con scroll fluido, Home scorre in cima
   const handleLinkClick = useCallback((e, to) => {
     const hashIndex = to.indexOf('#');
     if (hashIndex !== -1) {
@@ -50,13 +50,13 @@ export default function Navbar() {
     }
   }, [location.pathname, navigate]);
 
-  // Load pending pack count
+  // Carica il conteggio dei pacchetti in sospeso
   useEffect(() => {
     if (!user) return;
     countPendingPacks(user.id).then(setPendingPacks);
   }, [user]);
 
-  // Close dropdown on click outside
+  // Chiudi il dropdown al click fuori dall'area
   useEffect(() => {
     function handleClick(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -110,14 +110,14 @@ export default function Navbar() {
                     : 'text-fantasy-silver hover:text-white hover:bg-white/5'
                   }`}
               >
-                {/* Chest icon */}
+                {/* Icona forziere */}
                 <svg width="20" height="18" viewBox="0 0 20 18" fill="none" className="inline-block align-middle">
                   <rect x="1" y="6" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
                   <path d="M1 9h18" stroke="currentColor" strokeWidth="1" />
                   <path d="M4 6V4a6 6 0 0 1 12 0v2" stroke="currentColor" strokeWidth="1.5" fill="none" />
                   <rect x="8.5" y="10" width="3" height="3" rx="0.5" fill="currentColor" />
                 </svg>
-                {/* Red pulsing dot */}
+                {/* Pallino rosso pulsante */}
                 {pendingPacks > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
@@ -126,7 +126,7 @@ export default function Navbar() {
                 )}
               </button>
 
-              {/* Dropdown notification */}
+              {/* Notifica dropdown */}
               {packDropdown && pendingPacks > 0 && (
                 <div
                   className="absolute top-full right-0 mt-2 w-64 rounded-xl border border-fantasy-gold/30 overflow-hidden shadow-2xl"
@@ -203,7 +203,7 @@ export default function Navbar() {
                 </Link>
               </li>
             ))}
-            {/* Mobile Pacchetti link */}
+            {/* Link Pacchetti per mobile */}
             {user && pendingPacks > 0 && (
               <li>
                 <Link

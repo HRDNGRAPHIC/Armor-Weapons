@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+﻿import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/layout/Navbar';
@@ -54,7 +54,7 @@ function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
           boxShadow: `0 0 60px ${borderColor}22, 0 25px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`,
         }}
       >
-        {/* Header */}
+        {/* Intestazione */}
         <div
           className="px-5 py-4 border-b"
           style={{ borderColor: `${borderColor}44`, background: 'rgba(0,0,0,0.3)' }}
@@ -71,19 +71,19 @@ function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
           </div>
         </div>
 
-        {/* Body */}
+        {/* Corpo */}
         <div className="px-5 py-6">
           <p className="text-center mb-6 text-sm font-display" style={{ color: '#b8a67a' }}>
             Quante copie vuoi schierare?
           </p>
 
-          {/* Large quantity display */}
+          {/* Visualizzazione quantità grande */}
           <div className="text-center mb-5">
             <span className="text-5xl font-display font-bold" style={{ color: borderColor }}>{qty}</span>
             <span className="text-lg text-fantasy-silver/50 ml-1">/ {maxQty}</span>
           </div>
 
-          {/* Range slider */}
+          {/* Slider intervallo */}
           <div className="px-2 mb-6">
             <input
               type="range"
@@ -111,7 +111,7 @@ function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
             </div>
           </div>
 
-          {/* Confirm */}
+          {/* Conferma */}
           <button
             onClick={() => { onConfirm(qty); }}
             className="w-full py-3 rounded-xl font-display font-bold text-sm tracking-wider transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
@@ -126,7 +126,7 @@ function QuantityPopup({ card, maxQty, onConfirm, onClose }) {
         </div>
       </motion.div>
 
-      {/* Slider CSS injected inline */}
+      {/* CSS slider iniettato inline */}
       <style>{`
         .deck-qty-slider {
           -webkit-appearance: none;
@@ -318,7 +318,7 @@ export default function DeckBuilder() {
     const tempDeck = [];
     const tempUsage = {};
 
-    // Build flattened knight pool
+    // Costruisci il pool di cavalieri dispiegato
     const knightPool = [];
     for (const k of allKnights) {
       const avail = owned[k.catalogId] ?? 0;
@@ -326,7 +326,7 @@ export default function DeckBuilder() {
         knightPool.push(k.catalogId);
       }
     }
-    // Fisher-Yates shuffle
+    // Mescolamento Fisher-Yates
     for (let i = knightPool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [knightPool[i], knightPool[j]] = [knightPool[j], knightPool[i]];
@@ -341,7 +341,7 @@ export default function DeckBuilder() {
       }
     }
 
-    // Build flattened equipment pool
+    // Costruisci il pool di equipaggiamento dispiegato
     const equipPool = [];
     for (const e of allEquipment) {
       const avail = owned[e.catalogId] ?? 0;
@@ -376,7 +376,7 @@ export default function DeckBuilder() {
   async function handleSave() {
     if (!user) return;
 
-    // Limit: max 5 saved decks (allow update of existing)
+    // Limite: max 5 mazzi salvati (consente aggiornamento di uno esistente)
     if (!deckId && savedDecks.length >= MAX_SAVED_DECKS) {
       playMedievalSound('error');
       setRandomError(`Massimo ${MAX_SAVED_DECKS} mazzi salvati! Elimina un mazzo per salvarne uno nuovo.`);
@@ -454,9 +454,9 @@ export default function DeckBuilder() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* ═══ Left: Card Selection ═══════════════ */}
+            {/* ═══ Sinistra: Selezione Carte ════════ */}
             <div className="lg:col-span-2 space-y-6">
-              {/* ── Section 1: Knights ─────────────── */}
+              {/* ── Sezione 1: Cavalieri ────────── */}
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="font-display font-bold text-lg text-white">⚔️ Seleziona Cavalieri</h2>
@@ -603,7 +603,7 @@ export default function DeckBuilder() {
               </div>
             </div>
 
-            {/* ═══ Right: Current Deck Summary ═══════ */}
+            {/* ═══ Destra: Riepilogo Mazzo Corrente ═══ */}
             <div className="space-y-4 sticky top-24 h-fit">
               <div className="bg-fantasy-card border border-fantasy-border rounded-2xl p-5">
                 <h2 className="font-display font-semibold text-white text-lg mb-3">Il tuo Mazzo</h2>

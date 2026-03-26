@@ -66,7 +66,7 @@ function CardZoom({ card, owned, isNew, onClose, layoutId }) {
         onMouseLeave={handleMouseLeave}
         onClick={e => e.stopPropagation()}
       >
-        {/* "NEW" pulsing badge — only shown on zoom inspection */}
+        {/* Badge pulsante "NUOVA" — mostrato solo all'ispezione con zoom */}
         {isNew && (
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
             <span className="flex h-3 w-3">
@@ -77,12 +77,12 @@ function CardZoom({ card, owned, isNew, onClose, layoutId }) {
           </div>
         )}
 
-        {/* Art area */}
+        {/* Area artwork */}
         <div className="aspect-[3/4] bg-black flex items-center justify-center p-6">
           <span className="text-7xl">{TYPE_ICONS[card.type]}</span>
         </div>
 
-        {/* Info */}
+        {/* Informazioni */}
         <div className="p-5">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-display font-bold text-white text-lg leading-tight">{card.name}</h3>
@@ -116,7 +116,7 @@ function CardZoom({ card, owned, isNew, onClose, layoutId }) {
           </div>
         </div>
 
-        {/* Close button */}
+        {/* Pulsante chiudi */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black transition text-sm"
@@ -144,13 +144,13 @@ export default function Collection() {
     getNewCards(user.id).then(setNewCards);
   }, [user]);
 
-  // Open zoom — no side effects here
+  // Apri zoom — nessun effetto collaterale qui
   const handleZoom = useCallback((card) => {
     playMedievalSound('click');
     setZoomedCard(card);
   }, []);
 
-  // Close zoom — mark as seen on close if it was new
+  // Chiudi zoom — segna come vista alla chiusura se era nuova
   const handleCloseZoom = useCallback(() => {
     if (zoomedCard && user && newCards.has(zoomedCard.catalogId)) {
       markCardSeen(user.id, zoomedCard.catalogId);
@@ -195,7 +195,7 @@ export default function Collection() {
           </p>
 
           <div className="flex gap-6">
-            {/* ── Sidebar (large screens) ── */}
+            {/* ── Barra laterale (schermi grandi) ── */}
             <aside className="hidden lg:block w-52 flex-shrink-0">
               <div className="sticky top-24 rounded-xl border border-fantasy-gold/20 bg-fantasy-card p-4">
                 <h2 className="font-display font-bold text-fantasy-gold text-[11px] uppercase tracking-widest mb-4">
@@ -226,7 +226,7 @@ export default function Collection() {
               </div>
             </aside>
 
-            {/* ── Main content ── */}
+            {/* ── Contenuto principale ── */}
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <input
@@ -245,7 +245,7 @@ export default function Collection() {
                 />
               </div>
 
-              {/* Mobile stats — compact row, hidden on lg+ */}
+              {/* Statistiche mobile — riga compatta, nascosta su lg+ */}
               <div className="flex flex-wrap gap-2 mb-4 lg:hidden">
                 {rarityStats.map(r => (
                   <span key={r.id} className="px-2 py-1 bg-fantasy-card border border-fantasy-border rounded-lg text-[10px] font-display"
@@ -255,7 +255,7 @@ export default function Collection() {
                 ))}
               </div>
 
-              {/* Card grid */}
+              {/* Griglia carte */}
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {filteredCards.map(card => {
               const qty = owned[card.catalogId] ?? 0;
@@ -286,7 +286,7 @@ export default function Collection() {
                       {(card.type === 'item' || card.type === 'terrain') && card.desc}
                     </div>
                   </div>
-                  {/* Quantity badge */}
+                  {/* Badge quantità */}
                   <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold"
                     style={{
                       background: qty > 0 ? 'rgba(201,168,76,0.2)' : 'rgba(255,50,50,0.2)',
@@ -295,7 +295,7 @@ export default function Collection() {
                   >
                     x{qty}
                   </div>
-                  {/* New card badge */}
+                  {/* Badge carta nuova */}
                   {isNew && (
                     <span className="absolute top-1 left-1 flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
@@ -312,12 +312,12 @@ export default function Collection() {
               Nessuna carta trovata.
             </p>
           )}
-            </div>{/* end flex-1 min-w-0 */}
-          </div>{/* end flex gap-6 */}
+            </div>{/* fine flex-1 min-w-0 */}
+          </div>{/* fine flex gap-6 */}
         </div>
       </div>
 
-      {/* Zoom overlay — 3D tilt + badge active HERE only */}
+      {/* Overlay zoom — inclinazione 3D + badge attivo SOLO QUI */}
       <AnimatePresence>
         {zoomedCard && (
           <CardZoom

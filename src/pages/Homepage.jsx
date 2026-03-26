@@ -57,19 +57,19 @@ export default function Homepage() {
       <Navbar />
 
       {/* ══════════════════════════════════════════════
-          HERO SECTION
+          SEZIONE HERO
           ══════════════════════════════════════════════ */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-        {/* Background overlay */}
+        {/* Sfondo sovrapposto */}
         <div className="absolute inset-0 bg-gradient-to-b from-fantasy-darker via-fantasy-dark/80 to-fantasy-darker" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(201,168,76,0.08)_0%,_transparent_70%)]" />
 
-        {/* Decorative particles */}
+        {/* Particelle decorative */}
         <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-fantasy-gold/5 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fantasy-purple/5 rounded-full blur-3xl animate-pulse" />
 
         <div className="relative z-10 max-w-5xl mx-auto text-center px-4 sm:px-6">
-          {/* Tagline */}
+          {/* Slogan */}
           <p className="text-fantasy-gold font-display text-sm sm:text-base uppercase tracking-[0.3em] mb-4 animate-fade-in">
             Gioco di carte strategico 
           </p>
@@ -87,7 +87,7 @@ export default function Homepage() {
             Sfida i campioni di tutto il mondo.
           </p>
 
-          {/* CTAs */}
+          {/* Pulsanti azione */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/login"
@@ -103,7 +103,7 @@ export default function Homepage() {
             </a>
           </div>
 
-          {/* Stats strip */}
+          {/* Barra statistiche */}
           <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto">
             {[
               { value: '500+', label: 'Carte' },
@@ -120,7 +120,7 @@ export default function Homepage() {
           </div>
         </div>
 
-        {/* Scroll hint */}
+        {/* Suggerimento scroll */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <svg
             className="w-6 h-6 text-fantasy-gold/60"
@@ -153,7 +153,7 @@ export default function Homepage() {
                 key={news.id}
                 className="group bg-fantasy-card border border-fantasy-border rounded-2xl overflow-hidden hover:border-fantasy-gold/40 transition-all duration-300 hover:-translate-y-1"
               >
-                {/* Placeholder image area */}
+                {/* Area immagine segnaposto */}
                 <div className="h-44 bg-gradient-to-br from-fantasy-purple/20 to-fantasy-dark flex items-center justify-center">
                   <span className="text-5xl opacity-40">🗞️</span>
                 </div>
@@ -197,7 +197,7 @@ export default function Homepage() {
                 key={card.id}
                 className="group relative bg-fantasy-card border border-fantasy-border rounded-2xl overflow-hidden hover:border-fantasy-gold/40 transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(201,168,76,0.1)]"
               >
-                {/* Card art placeholder */}
+                {/* Segnaposto artwork carta */}
                 <div className="aspect-[3/4] bg-gradient-to-br from-fantasy-purple/20 via-fantasy-dark to-fantasy-card flex items-center justify-center">
                   <span className="text-6xl opacity-30">🃏</span>
                 </div>

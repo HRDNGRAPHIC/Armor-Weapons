@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 
 /**
- * SmartFilter — Dropdown multi-select filter for type and/or rarity.
+ * SmartFilter — Dropdown a selezione multipla per filtrare per tipo e/o rarità.
  * @param {Object} props
- * @param {Object} [props.typeOptions] — e.g. { knight: 'Cavalieri', weapon: 'Armi', ... }
- * @param {Array}  [props.rarityOptions] — e.g. [{ id: 'comune', label: 'Comune', color: '#8a8a9a' }, ...]
- * @param {Set}    props.selectedTypes — currently selected type keys
- * @param {Set}    props.selectedRarities — currently selected rarity ids
+ * @param {Object} [props.typeOptions] — es. { knight: 'Cavalieri', weapon: 'Armi', ... }
+ * @param {Array}  [props.rarityOptions] — es. [{ id: 'comune', label: 'Comune', color: '#8a8a9a' }, ...]
+ * @param {Set}    props.selectedTypes — chiavi tipo attualmente selezionate
+ * @param {Set}    props.selectedRarities — id rarità attualmente selezionati
  * @param {(types: Set, rarities: Set) => void} props.onChange
  */
 export default function SmartFilter({
@@ -19,7 +19,7 @@ export default function SmartFilter({
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
-  // Close on click outside
+  // Chiudi al click esterno
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
@@ -65,7 +65,7 @@ export default function SmartFilter({
 
       {open && (
         <div className="absolute z-50 mt-2 left-0 min-w-[220px] bg-fantasy-card border border-fantasy-border rounded-xl shadow-2xl p-4 space-y-3">
-          {/* Type filters */}
+          {/* Filtri per tipo */}
           {hasTypes && (
             <div>
               <p className="text-fantasy-silver text-xs font-bold mb-2 uppercase tracking-wider">Tipo</p>
@@ -87,7 +87,7 @@ export default function SmartFilter({
             </div>
           )}
 
-          {/* Rarity filters */}
+          {/* Filtri per rarità */}
           {hasRarities && (
             <div>
               <p className="text-fantasy-silver text-xs font-bold mb-2 uppercase tracking-wider">Rarità</p>
@@ -109,7 +109,7 @@ export default function SmartFilter({
             </div>
           )}
 
-          {/* Clear button */}
+          {/* Pulsante cancella */}
           {activeCount > 0 && (
             <button
               onClick={clearAll}

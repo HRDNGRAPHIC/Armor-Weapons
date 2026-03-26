@@ -1,11 +1,11 @@
 /*
- * packs.js — Supabase service for user_packs table.
- * Manages pending/redeemable packs.
+ * packs.js — Servizio Supabase per la tabella user_packs.
+ * Gestisce i pacchetti in sospeso/riscattabili.
  */
 import { supabase } from './supabase';
 
 /**
- * Fetch pending (unredeemed) packs for a user.
+ * Ottieni i pacchetti in sospeso (non riscattati) di un utente.
  */
 export async function getPendingPacks(userId) {
   if (!supabase || !userId) return [];
@@ -24,7 +24,7 @@ export async function getPendingPacks(userId) {
 }
 
 /**
- * Mark a pack as redeemed.
+ * Segna un pacchetto come riscattato.
  */
 export async function redeemPack(userId, packId) {
   if (!supabase || !userId) return null;
@@ -44,7 +44,7 @@ export async function redeemPack(userId, packId) {
 }
 
 /**
- * Count unredeemed packs for notification badge.
+ * Conta i pacchetti non riscattati per il badge di notifica.
  */
 export async function countPendingPacks(userId) {
   if (!supabase || !userId) return 0;

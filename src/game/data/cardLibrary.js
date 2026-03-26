@@ -1,41 +1,41 @@
 /*
- * cardLibrary.js — Extended card library with unique IDs and lore connections.
- * Wraps cardCatalog.js and adds: relatedTo, lore, set fields.
- * Used for future story expansions and collection displays.
+ * cardLibrary.js — Libreria carte estesa con ID univoci e connessioni di lore.
+ * Incapsula cardCatalog.js e aggiunge: i campi relatedTo, lore, set.
+ * Usata per future espansioni narrative e visualizzazioni della collezione.
  */
 import { CARD_CATALOG, RARITIES, getCardById, getCardsByType } from './cardCatalog';
 
-// Re-export everything from cardCatalog for convenience
+// Ri-esporta tutto da cardCatalog per comodità
 export { RARITIES, getCardById, getCardsByType, CARD_CATALOG };
 
 /*
- * relatedTo map: catalogId → array of related catalogIds.
- * Links minor cards to their legendary "anchor" for future story expansions.
+ * Mappa relatedTo: catalogId → array di catalogId correlati.
+ * Collega le carte minori al loro «ancora» leggendario per future espansioni narrative.
  *
- * Example: Sardeth il Re Nero (K012) is connected to several cards
- * in his storyline.
+ * Esempio: Sardeth il Re Nero (K012) è connesso a diverse carte
+ * della sua storia.
  */
 const RELATIONS = {
-  // Sardeth il Re Nero's court
+  // Corte di Sardeth il Re Nero
   'K012': ['K014', 'W025', 'S035', 'I046'],  // Sardeth → Mortharion, Spadone di Sangue, Egida del Re Morto, Sottrai
   'K014': ['K012', 'I045'],                    // Mortharion Spettrale → Sardeth, Sacrificio
   'K013': ['W026', 'W024'],                    // Velkan il Distruttore → Spadone di Sangue, Lama Oscura
 
-  // Ragnar's warband
+  // Banda di Ragnar
   'K010': ['W022', 'W023', 'I040'],            // Ragnar Lugubre → Flagello di Catene, Falce Animica, Sabbia
   'K008': ['S033', 'I042'],                    // Vornik il Brutale → Egida Oscura, Veleno Berserker
 
-  // Azrael's shadow
+  // Ombra di Azrael
   'K006': ['I043', 'T054'],                    // Azrael il Silente → Lacrima di Angelo, Riflesso Oscuro
   'K011': ['I044', 'S034'],                    // Kaelen il Dannato → Sangue al Nemico, Barriera dell'Abisso
 };
 
 /**
- * Full card library — each card enriched with relatedTo array.
- * Every card object has:
- *   - All fields from CARD_CATALOG
- *   - relatedTo: string[] — catalogIds of lore-linked cards
- *   - set: string — expansion set name
+ * Libreria carte completa — ogni carta arricchita con array relatedTo.
+ * Ogni oggetto carta ha:
+ *   - Tutti i campi da CARD_CATALOG
+ *   - relatedTo: string[] — catalogId delle carte legate dalla lore
+ *   - set: string — nome dell'espansione
  */
 export const CARD_LIBRARY = CARD_CATALOG.map(card => ({
   ...card,
@@ -44,14 +44,14 @@ export const CARD_LIBRARY = CARD_CATALOG.map(card => ({
 }));
 
 /**
- * Get full library card by catalogId (with relations).
+ * Ottieni la carta completa dalla libreria tramite catalogId (con relazioni).
  */
 export function getLibraryCard(catalogId) {
   return CARD_LIBRARY.find(c => c.catalogId === catalogId) ?? null;
 }
 
 /**
- * Get all cards related to a given card.
+ * Ottieni tutte le carte correlate a una data carta.
  */
 export function getRelatedCards(catalogId) {
   const card = getLibraryCard(catalogId);
@@ -60,34 +60,34 @@ export function getRelatedCards(catalogId) {
 }
 
 /**
- * Generate a Starter Deck: exactly 5 knights + 45 equipment = 50 cards.
- * Mirrors the game engine composition: 15 weapons, 15 shields, 10 items, 5 terrains.
- * Uses common-rarity cards from the catalog, distributing copies evenly.
- * Returns array of { catalogId, quantity } for addCardsToCollection.
+ * Genera un Mazzo Iniziale: esattamente 5 cavalieri + 45 equipaggiamento = 50 carte.
+ * Rispecchia la composizione del motore di gioco: 15 armi, 15 scudi, 10 oggetti, 5 terreni.
+ * Usa le carte di rarità comune dal catalogo, distribuendo le copie uniformemente.
+ * Restituisce un array di { catalogId, quantity } per addCardsToCollection.
  */
 export function generateStarterDeck() {
   const counts = {};
   const add = (id) => { counts[id] = (counts[id] ?? 0) + 1; };
 
-  // 5 knights — use the 4 comuni (K000-K003) + 1 duplicate
+  // 5 cavalieri — usa i 4 comuni (K000-K003) + 1 duplicato
   const commonKnights = CARD_CATALOG.filter(c => c.type === 'knight' && c.rarity?.id === 'comune');
   for (let i = 0; i < 5; i++) {
     add(commonKnights[i % commonKnights.length].catalogId);
   }
 
-  // 15 weapons — distribute evenly across common weapons
+  // 15 armi — distribuisce uniformemente tra le armi comuni
   const commonWeapons = CARD_CATALOG.filter(c => c.type === 'weapon' && c.rarity?.id === 'comune');
   for (let i = 0; i < 15; i++) {
     add(commonWeapons[i % commonWeapons.length].catalogId);
   }
 
-  // 15 shields — distribute evenly across common shields
+  // 15 scudi — distribuisce uniformemente tra gli scudi comuni
   const commonShields = CARD_CATALOG.filter(c => c.type === 'shield' && c.rarity?.id === 'comune');
   for (let i = 0; i < 15; i++) {
     add(commonShields[i % commonShields.length].catalogId);
   }
 
-  // 10 items — one of each base item (first 10 with unique itemIds from gameData)
+  // 10 oggetti — uno per ogni oggetto base (i primi 10 con itemId univoci da gameData)
   const seenItemIds = new Set();
   const baseItems = CARD_CATALOG.filter(c => {
     if (c.type !== 'item') return false;
@@ -99,7 +99,7 @@ export function generateStarterDeck() {
     add(item.catalogId);
   }
 
-  // 5 terrains — one of each base terrain (first 5 with unique terrainIds from gameData)
+  // 5 terreni — uno per ogni terreno base (primi 5 con terrainId univoci da gameData)
   const seenTerrainIds = new Set();
   const baseTerrains = CARD_CATALOG.filter(c => {
     if (c.type !== 'terrain') return false;

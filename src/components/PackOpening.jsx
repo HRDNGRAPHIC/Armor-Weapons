@@ -110,7 +110,7 @@ function generatePack(tier, typeFilter) {
   for (let i = 0; i < 5; i++) {
     const rarity = rollRarityFromTable(rates);
     const eligible = pool.filter(c => c.rarity.id === rarity.id);
-    // Fallback: if no cards of that rarity exist for this type, pick any from pool
+    // Fallback: se non esistono carte di quella rarità per questo tipo, prendi una qualsiasi dal pool
     const pick = eligible.length > 0
       ? eligible[Math.floor(Math.random() * eligible.length)]
       : pool[Math.floor(Math.random() * pool.length)];
@@ -310,7 +310,7 @@ export default function PackOpening({ packTier = 'standard', typeFilter = null, 
         <Particles count={40} color="#c9a84c44" />
 
         <div className="relative z-20 w-full max-w-md px-4">
-          {/* ── SEALED PACK ─────────────────────────── */}
+          {/* ── PACCHETTO SIGILLATO ──────────────────── */}
           {phase === 'sealed' && (
             <motion.div className="flex flex-col items-center gap-6">
               <motion.div
@@ -325,7 +325,7 @@ export default function PackOpening({ packTier = 'standard', typeFilter = null, 
                 animate={{ y: [0, -8, 0] }}
                 transition={{ y: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' } }}
               >
-                {/* Wax seal */}
+                {/* Sigillo di cera */}
                 <div className="absolute top-6 w-16 h-16 rounded-full flex items-center justify-center"
                   style={{ background: 'radial-gradient(circle, #8a0303 30%, #5a0202 100%)', boxShadow: '0 4px 12px rgba(138,3,3,0.6)' }}
                 >
@@ -358,7 +358,7 @@ export default function PackOpening({ packTier = 'standard', typeFilter = null, 
             </motion.div>
           )}
 
-          {/* ── CUTTING ANIMATION ───────────────────── */}
+          {/* ── ANIMAZIONE APERTURA ───────────────── */}
           {phase === 'cutting' && (
             <motion.div className="flex items-center justify-center h-72 relative">
               <motion.div
@@ -384,7 +384,7 @@ export default function PackOpening({ packTier = 'standard', typeFilter = null, 
             </motion.div>
           )}
 
-          {/* ── CARD REVEAL (Swipe Stack) ───────────── */}
+          {/* ── RIVELAZIONE CARTE (Mazzo a Swipe) ───── */}
           {phase === 'reveal' && (
             <motion.div
               initial={{ opacity: 0, y: 30 }}
@@ -395,7 +395,7 @@ export default function PackOpening({ packTier = 'standard', typeFilter = null, 
             </motion.div>
           )}
 
-          {/* ── ALL DONE ────────────────────────────── */}
+          {/* ── COMPLETATO ───────────────────────────── */}
           {phase === 'done' && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}

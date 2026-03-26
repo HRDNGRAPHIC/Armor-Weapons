@@ -1,12 +1,12 @@
 /*
- * collection.js — Supabase service for user_collection table.
- * Manages owned cards (populated by pack openings).
+ * collection.js — Servizio Supabase per la tabella user_collection.
+ * Gestisce le carte possedute (popolate dalle aperture di pacchetti).
  */
 import { supabase } from './supabase';
 
 /**
- * Fetch all cards owned by a user.
- * Returns array of { id, user_id, catalog_id, quantity, obtained_at }
+ * Ottieni tutte le carte possedute da un utente.
+ * Restituisce array di { id, user_id, catalog_id, quantity, obtained_at }
  */
 export async function getUserCollection(userId) {
   if (!supabase || !userId) return [];
@@ -24,15 +24,15 @@ export async function getUserCollection(userId) {
 }
 
 /**
- * Add cards to user collection (after pack opening).
- * If card already exists, increments quantity.
+ * Aggiungi carte alla collezione dell'utente (dopo l'apertura di un pacchetto).
+ * Se la carta esiste già, incrementa la quantità.
  * @param {string} userId
  * @param {Array<{catalogId: string, quantity?: number}>} cards
  */
 export async function addCardsToCollection(userId, cards) {
   if (!supabase || !userId || !cards?.length) return [];
 
-  // Fetch existing collection to merge quantities
+  // Carica la collezione esistente per unire le quantità
   const existing = await getUserCollection(userId);
   const existingMap = new Map(existing.map(e => [e.catalog_id, e]));
 
@@ -59,7 +59,7 @@ export async function addCardsToCollection(userId, cards) {
 }
 
 /**
- * Get a map of catalogId → quantity for quick lookups.
+ * Ottieni una mappa catalogId → quantità per ricerche veloci.
  */
 export async function getCollectionMap(userId) {
   const collection = await getUserCollection(userId);
@@ -71,8 +71,8 @@ export async function getCollectionMap(userId) {
 }
 
 /**
- * Get a set of catalogIds that are "new" (is_new = true).
- * Returns Set<string>.
+ * Ottieni l'insieme di catalogId che sono "nuovi" (is_new = true).
+ * Restituisce Set<string>.
  */
 export async function getNewCards(userId) {
   if (!supabase || !userId) return new Set();
@@ -89,7 +89,7 @@ export async function getNewCards(userId) {
 }
 
 /**
- * Mark a card as seen (is_new = false).
+ * Segna una carta come vista (is_new = false).
  */
 export async function markCardSeen(userId, catalogId) {
   if (!supabase || !userId) return;

@@ -1,8 +1,8 @@
 /*
- * cardCatalog.js — Expanded 60+ card catalog with Dark Fantasy theme.
- * MASTER SOURCE: gameData.js arrays (knightNames, weaponNames, shieldNames, itemDefs, terrainDefs).
- * All item/terrain IDs, CU values, and descriptions come from gameData.
- * Used by Collection, DeckBuilder, PackOpening.
+ * cardCatalog.js — Catalogo di oltre 60 carte con tema Dark Fantasy.
+ * SORGENTE MASTER: array di gameData.js (knightNames, weaponNames, shieldNames, itemDefs, terrainDefs).
+ * Tutti gli ID oggetto/terreno, valori CU e descrizioni provengono da gameData.
+ * Usato da Collection, DeckBuilder, PackOpening.
  */
 import {
   getPixelSVG,
@@ -35,7 +35,7 @@ export function rollRarity() {
   return RARITIES[0];             // comune
 }
 
-/* ── Knights (15) ─────────────────────────────────── */
+/* ── Cavalieri (15) ─────────────────────────────────── */
 const KNIGHTS = [
   { name: 'Gothmog il Flagello',      rarity: 'comune',      baseAtk: 4,  baseDef: 6,  basePa: 2 },
   { name: 'Kull il Martire',          rarity: 'comune',      baseAtk: 5,  baseDef: 5,  basePa: 2 },
@@ -54,7 +54,7 @@ const KNIGHTS = [
   { name: 'Mortharion Spettrale',     rarity: 'leggendaria', baseAtk: 9,  baseDef: 12, basePa: 4 },
 ];
 
-/* ── Weapons (12) — EVERY (atkBonus, cu) pair is UNIQUE ── */
+/* ── Armi (12) — OGNI coppia (atkBonus, cu) è UNICA ── */
 const WEAPONS = [
   { name: 'Pugnale Arrugginito',      rarity: 'comune',      atkBonus: 1, cu: 1 },
   { name: 'Spada di Ferro Nero',      rarity: 'comune',      atkBonus: 2, cu: 1 },
@@ -70,7 +70,7 @@ const WEAPONS = [
   { name: 'Spadone di Sangue Antico', rarity: 'leggendaria', atkBonus: 8, cu: 3 },
 ];
 
-/* ── Shields (10) — EVERY (defBonus, cu) pair is UNIQUE ── */
+/* ── Scudi (10) — OGNI coppia (defBonus, cu) è UNICA ── */
 const SHIELDS = [
   { name: 'Scudo di Legno Marcio',    rarity: 'comune',      defBonus: 1, cu: 1 },
   { name: 'Scudo di Ferro',           rarity: 'comune',      defBonus: 2, cu: 1 },
@@ -84,11 +84,11 @@ const SHIELDS = [
   { name: 'Scudo Eterno',             rarity: 'leggendaria', defBonus: 8, cu: 3 },
 ];
 
-/* ── Items (25) — Base 10 IDs sourced from gameData.itemDefs ─── */
-/* EVERY card has a UNIQUE description — no two cards share the same text. */
+/* ── Oggetti (25) — I 10 ID base provengono da gameData.itemDefs ─── */
+/* OGNI carta ha una descrizione UNICA — nessuna carta condivide lo stesso testo. */
 const _id = (id) => itemDefs.find(d => d.id === id);
 const ITEMS = [
-  // ── Original 13 (preserve catalog IDs) ──
+  // ── 13 Originali (preserva gli ID del catalogo) ──
   { name: 'Ampolla di Cura',          rarity: 'comune',      itemId: 'ampolla',    desc: '+5 DEF',                                           cu: _id('ampolla').cu },
   { name: 'Sidro Guerriero',          rarity: 'comune',      itemId: 'sidro',      desc: '+3 PA',                                            cu: _id('sidro').cu },
   { name: 'Sabbia negli Occhi',       rarity: 'rara',        itemId: 'sabbia',     desc: 'Acceca nemico (2T), 1/2 ATK',                      cu: _id('sabbia').cu },
@@ -102,7 +102,7 @@ const ITEMS = [
   { name: 'Fiala di Nebbia',          rarity: 'comune',      itemId: 'fortuna',    desc: 'Nebbia mistica: pesca 1 carta aggiuntiva',         cu: _id('fortuna').cu },
   { name: 'Polvere Oscura',           rarity: 'rara',        itemId: 'veleno',     desc: 'Furia tossica: +1 ATK, -1 DEF per 3 turni',       cu: _id('veleno').cu },
   { name: 'Essenza della Tomba',      rarity: 'epica',       itemId: 'lacrima',    desc: 'Protezione spettrale: +1 DEF/-1 ATK (3T)',         cu: _id('lacrima').cu },
-  // ── 12 New Variants — unique descriptions ──
+  // ── 12 Nuove Varianti — descrizioni uniche ──
   { name: 'Balsamo Infernale',        rarity: 'comune',      itemId: 'ampolla',    desc: 'Cura ferite: +5 alla difesa',                      cu: _id('ampolla').cu },
   { name: 'Nettare degli Dei',        rarity: 'rara',        itemId: 'sidro',      desc: 'Vigore divino: +3 PA questo turno',                cu: _id('sidro').cu },
   { name: 'Cenere Accecante',         rarity: 'epica',       itemId: 'sabbia',     desc: 'Acceca il nemico per 2 turni, dimezza ATK',        cu: _id('sabbia').cu },
@@ -117,10 +117,10 @@ const ITEMS = [
   { name: 'Fumo Tossico',             rarity: 'comune',      itemId: 'sabbia',     desc: 'Nube accecante: nemico a metà attacco (2T)',       cu: _id('sabbia').cu },
 ];
 
-/* ── Terrains (18) — Base 5 IDs sourced from gameData.terrainDefs ── */
-/* EVERY card has a UNIQUE description — no two cards share the same text. */
+/* ── Terreni (18) — I 5 ID base provengono da gameData.terrainDefs ── */
+/* OGNI carta ha una descrizione UNICA — nessuna carta condivide lo stesso testo. */
 const TERRAINS = [
-  // ── Original 10 (preserve catalog IDs) ──
+  // ── 10 Originali (preserva gli ID del catalogo) ──
   { name: 'Terremoto',                rarity: 'rara',        terrainId: 'terremoto', desc: 'Dimezza ATK e DEF (3T)' },
   { name: 'Pioggia Divina',           rarity: 'comune',      terrainId: 'pioggia',   desc: '+2 DEF curati ogni turno (3T)' },
   { name: 'Catene Infernali',         rarity: 'epica',       terrainId: 'catene',    desc: 'Annulla potenziamenti (3T)' },
@@ -131,7 +131,7 @@ const TERRAINS = [
   { name: 'Ghiaccio Perenne',         rarity: 'epica',       terrainId: 'sonno',     desc: 'Gelo eterno: -5 ATK, battaglia lenta (3T)' },
   { name: 'Fossa dell\'Oblio',        rarity: 'epica',       terrainId: 'catene',    desc: 'Oblio: annulla tutti i potenziamenti (3T)' },
   { name: 'Specchio dell\'Anima',     rarity: 'leggendaria', terrainId: 'riflesso',  desc: 'Specchio: il nemico copia il tuo cavaliere (3T)' },
-  // ── 8 New Variants — unique descriptions ──
+  // ── 8 Nuove Varianti — descrizioni uniche ──
   { name: 'Valanga Oscura',           rarity: 'epica',       terrainId: 'terremoto', desc: 'Devastazione: dimezza ATK/DEF di tutti (3T)' },
   { name: 'Fonte Sacra',              rarity: 'rara',        terrainId: 'pioggia',   desc: 'Acqua benedetta: rigenera +2 DEF a turno (3T)' },
   { name: 'Prigione di Spine',        rarity: 'rara',        terrainId: 'catene',    desc: 'Spine: blocca potenziamenti per 3 turni' },
@@ -142,13 +142,13 @@ const TERRAINS = [
   { name: 'Trappola del Ragno',       rarity: 'comune',      terrainId: 'catene',    desc: 'Ragnatela: i potenziamenti sono annullati (3T)' },
 ];
 
-/* ── Build catalog (backward-compatible IDs: existing cards keep their indices) ── */
+/* ── Costruzione catalogo (ID retrocompatibili: le carte esistenti mantengono i propri indici) ── */
 function findRarity(id) { return RARITIES.find(r => r.id === id); }
 
 const catalog = [];
 let idx = 0;
 
-// K000-K014
+// K000-K014 (Cavalieri)
 KNIGHTS.forEach(k => {
   catalog.push({
     catalogId: `K${String(idx++).padStart(3,'0')}`,
@@ -158,7 +158,7 @@ KNIGHTS.forEach(k => {
   });
 });
 
-// W015-W026
+// W015-W026 (Armi)
 WEAPONS.forEach(w => {
   catalog.push({
     catalogId: `W${String(idx++).padStart(3,'0')}`,
@@ -168,7 +168,7 @@ WEAPONS.forEach(w => {
   });
 });
 
-// S027-S036
+// S027-S036 (Scudi)
 SHIELDS.forEach(s => {
   catalog.push({
     catalogId: `S${String(idx++).padStart(3,'0')}`,
@@ -178,7 +178,7 @@ SHIELDS.forEach(s => {
   });
 });
 
-// I037-I049 (original 13 items)
+// I037-I049 (13 oggetti originali)
 ITEMS.slice(0, 13).forEach(it => {
   catalog.push({
     catalogId: `I${String(idx++).padStart(3,'0')}`,
@@ -188,7 +188,7 @@ ITEMS.slice(0, 13).forEach(it => {
   });
 });
 
-// T050-T059 (original 10 terrains)
+// T050-T059 (10 terreni originali)
 TERRAINS.slice(0, 10).forEach(t => {
   catalog.push({
     catalogId: `T${String(idx++).padStart(3,'0')}`,
@@ -198,7 +198,7 @@ TERRAINS.slice(0, 10).forEach(t => {
   });
 });
 
-// I060-I071 (12 new item variants)
+// I060-I071 (12 nuove varianti oggetto)
 ITEMS.slice(13).forEach(it => {
   catalog.push({
     catalogId: `I${String(idx++).padStart(3,'0')}`,
@@ -208,7 +208,7 @@ ITEMS.slice(13).forEach(it => {
   });
 });
 
-// T072-T079 (8 new terrain variants)
+// T072-T079 (8 nuove varianti terreno)
 TERRAINS.slice(10).forEach(t => {
   catalog.push({
     catalogId: `T${String(idx++).padStart(3,'0')}`,

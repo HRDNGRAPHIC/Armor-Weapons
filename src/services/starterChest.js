@@ -1,17 +1,17 @@
 /*
- * starterChest.js — Supabase service for granting and tracking starter chests.
- * A starter chest contains 45 Common cards (0.07% Rare per slot).
+ * starterChest.js — Servizio Supabase per la concessione e il tracciamento dei forzieri iniziali.
+ * Un forziere iniziale contiene 45 carte Comuni (0.07% Rare per slot).
  */
 import { supabase } from './supabase';
 import { addCardsToCollection } from './collection';
 import { generateStarterDeck } from '../game/data/cardLibrary';
 
 /**
- * Check if the user has already received their starter chest.
- * Uses the `starter_claimed` boolean on the profiles table.
+ * Controlla se l'utente ha già ricevuto il suo forziere iniziale.
+ * Usa il booleano `starter_claimed` sulla tabella profiles.
  */
 export async function hasClaimedStarter(userId) {
-  if (!supabase || !userId) return true; // Default to "already claimed"
+  if (!supabase || !userId) return true; // Per default "già riscattato"
   const { data, error } = await supabase
     .from('profiles')
     .select('starter_claimed')
@@ -26,24 +26,24 @@ export async function hasClaimedStarter(userId) {
 }
 
 /**
- * Grant the starter chest: generate 45 cards and add to collection.
- * Marks starter_claimed = true on the profile.
- * @returns {Array} cards added (array of { catalogId, quantity })
+ * Concedi il forziere iniziale: genera 45 carte e aggiungile alla collezione.
+ * Imposta starter_claimed = true sul profilo.
+ * @returns {Array} carte aggiunte (array di { catalogId, quantity })
  */
 export async function claimStarterChest(userId) {
   if (!supabase || !userId) return [];
 
-  // Double-check they haven't already claimed
+  // Doppio controllo che non abbiano già riscattato
   const alreadyClaimed = await hasClaimedStarter(userId);
   if (alreadyClaimed) return [];
 
-  // Generate the starter deck
+  // Genera il mazzo iniziale
   const starterCards = generateStarterDeck();
 
-  // Add cards to collection
+  // Aggiungi carte alla collezione
   await addCardsToCollection(userId, starterCards);
 
-  // Mark as claimed
+  // Segna come riscattato
   await supabase
     .from('profiles')
     .update({ starter_claimed: true, updated_at: new Date().toISOString() })
