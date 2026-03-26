@@ -13,7 +13,7 @@
  */
 import { useMemo, useRef, useEffect, Suspense, useState, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrthographicCamera, useTexture, ContactShadows } from '@react-three/drei';
+import { PerspectiveCamera, useTexture, ContactShadows } from '@react-three/drei';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
 import Card3D, { animatePlayCard } from './Card3D';
@@ -35,12 +35,13 @@ import boardImg from '../../assets/gameboard_test.png';
    ║    • Cards lying flat on table: rotation = [-π/2, 0, 0]           ║
    ║    • Cards lying flat sideways: rotation = [-π/2, 0, π/2]         ║
    ║                                                                   ║
-   ║  perspX / perspY — Perspective Grid Fine-Tuning                   ║
-   ║    Slide an element along the isometric grid AFTER placing it,    ║
-   ║    without touching rotation or scale. Both default to 0.         ║
-   ║      perspX: 0  → nudge left (−) or right (+) on screen           ║
-   ║      perspY: 0  → nudge toward top (−) or bottom (+) of screen    ║
-   ║    Adjust in small increments (e.g. ± 0.05).                      ║
+   ║  perspX / perspY — Per-Element Perspective Tilt                   ║
+   ║    Tilts the element to reveal its edge / thickness — like the    ║
+   ║    old global board tilt, but independently per object.           ║
+   ║    Values are in RADIANS, added to the element's base rotation.   ║
+   ║      perspX: 0  → tilt forward / backward  (added to rotation[0])║
+   ║      perspY: 0  → tilt left / right         (added to rotation[2])║
+   ║    Try ±0.1 – ±0.5 for a visible 3D edge effect.                 ║
    ╚═══════════════════════════════════════════════════════════════════╝ */
 const CONFIG_3D = {
 
@@ -53,31 +54,40 @@ const CONFIG_3D = {
     position: [0, -0.01, 0],
     rotation: [-Math.PI / 2, 0, 0],
     scale:    [1, 1, 1],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    perspX:   0,
+    perspY:   0,
+    shadowConfig: null,                       // table has no per-element shadow
+    topSkew:    [0, 0],                       // XY translation of top-half vertices  (Y > 0); [0,0] = no deformation
+    bottomSkew: [0, 0],                       // XY translation of bottom-half vertices (Y < 0); [0,0] = no deformation
   },
 
   /* ─────────────────────────────────────────────────
-     Player Main Weapon Deck (bottom-left area)
+     Player Main Weapon Deck (zona sinistra sotto)
      Cards stacked horizontally (rotated 90° on Z).
      ───────────────────────────────────────────────── */
   playerMainDeck: {
-    position: [-3.9, 0.10, 2.0],             // X left, Z toward player
-    rotation: [-Math.PI / 2, 0, Math.PI / 2],// flat + sideways
-    scale:    [1.6, 1.6, 1.6],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    position: [-5.74, 0, 0.6],
+    rotation: [-Math.PI / 2, 0, Math.PI / 2],
+    scale:    [1.46, 1.46, 1.46],
+    perspX:   -0.32,
+    perspY:   0,
+    shadowConfig: { opacity: 0.55, blur: 2.0, scale: 3.5, offset: [0, 0], far: 1.5 },
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
      Opponent Main Weapon Deck (top-left area, mirrored)
      ───────────────────────────────────────────────── */
   opponentMainDeck: {
-    position: [-3.9, 0.10, -2.0],            // same X, opposite Z
+    position: [-5.36, 0, -1.90],
     rotation: [-Math.PI / 2, 0, Math.PI / 2],
-    scale:    [1.6, 1.6, 1.6],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    scale:    [1.40, 1.40, 1.40],
+    perspX:   -0.32,
+    perspY:   0,
+    shadowConfig: { opacity: 1, blur: 2.0, scale: 10, offset: [10, 10], far: 1.5 },
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
@@ -85,22 +95,28 @@ const CONFIG_3D = {
      Cards stacked vertically (no Z rotation).
      ───────────────────────────────────────────────── */
   playerKnightDeck: {
-    position: [3.7, 0.10, 0.1],
-    rotation: [-Math.PI / 2, 0, 0],          // flat, portrait
-    scale:    [1.6, 1.6, 1.6],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    position: [5.6, 0.10, 0.3],
+    rotation: [-Math.PI / 2, 0, Math.PI / 2],
+    scale:    [1.45, 1.45, 1.45],
+    perspX:   -0.14,
+    perspY:   0,
+    shadowConfig: { opacity: 0.30, blur: 1, scale: 3.2, offset: [0, 0], far: 1.2 },
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
      Opponent Knight Deck (top-right area, mirrored)
      ───────────────────────────────────────────────── */
   opponentKnightDeck: {
-    position: [3.7, 0.10, -1.2],
-    rotation: [-Math.PI / 2, 0, 0],
-    scale:    [1.6, 1.6, 1.6],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    position: [5.6, 0.10, -1.2],
+    rotation: [-Math.PI / 2, 0, Math.PI / 2],
+    scale:    [1.45, 1.45, 1.45],
+    perspX:   -0.2,
+    perspY:   0,
+    shadowConfig: { opacity: 0.50, blur: 2.5, scale: 3.2, offset: [0, 0], far: 1.2 },
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
@@ -109,22 +125,28 @@ const CONFIG_3D = {
      Rotation = [-π/2, 0, 0] → flat, face-up, readable.
      ───────────────────────────────────────────────── */
   playerKnightSlot: {
-    position: [-1.26, 0.10, -0.45],          // centre, offset left
-    rotation: [-Math.PI / 2, 0, 0],          // perfectly flat & readable
+    position: [-1.26, 0.10, -0.45],
+    rotation: [-Math.PI / 2, 0, 0],
     scale:    [1.6, 1.6, 1.6],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    perspX:   0,
+    perspY:   0,
+    shadowConfig: { opacity: 0.35, blur: 4.0, scale: 4.0, offset: [0, 0], far: 2.0 },
+    topSkew:    [0.03, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
      Opponent Knight Slot (centre, slightly RIGHT)
      ───────────────────────────────────────────────── */
   opponentKnightSlot: {
-    position: [1.26, 0.10, -0.45],           // centre, offset right
-    rotation: [-Math.PI / 2, 0, 0],          // perfectly flat & readable
+    position: [1.26, 0.10, -0.45],
+    rotation: [-Math.PI / 2, 0, 0],
     scale:    [1.6, 1.6, 1.6],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    perspX:   0,
+    perspY:   0,
+    shadowConfig: { opacity: 0.35, blur: 4.0, scale: 4.0, offset: [0, 0], far: 2.0 },
+    topSkew:    [-0.03, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
@@ -132,38 +154,52 @@ const CONFIG_3D = {
      Sits at the exact geometric centre [0, 0, 0].
      ───────────────────────────────────────────────── */
   clashZone: {
-    position: [0, 0.003, -0.45],             // dead centre of the board
+    position: [0, 0.003, -0.45],
     rotation: [-Math.PI / 2, 0, 0],
     scale:    [1, 1, 1],
-    innerRadius: 0.25,                        // tight between the two cards
+    innerRadius: 0.25,
     outerRadius: 0.35,
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    perspX:   0,
+    perspY:   0,
+    shadowConfig: null,
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
   },
 
   /* ─────────────────────────────────────────────────
      Player Equip Slot (where weapon cards land after play)
      ───────────────────────────────────────────────── */
   playerEquipSlot: {
-    position: [-1.5, 0.10, 0],               // left of the knight pair
+    position: [-1.5, 0.10, 0],
     rotation: [-Math.PI / 2, 0, 0],
     scale:    [1, 1, 1],
-    perspX:   0,                              // ← nudge left/right on perspective grid
-    perspY:   0,                              // ← nudge up/down   on perspective grid
+    perspX:   0,
+    perspY:   0,
+    shadowConfig: { opacity: 0.40, blur: 3.5, scale: 3.8, offset: [0, 0], far: 1.5 },
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
   },
 };
 
 /**
- * perspPos — Resolves the final world-space [x, y, z] for a CONFIG_3D element.
- * Adds perspX (horizontal nudge → world X) and perspY (depth nudge → world Z).
- * Every component that renders a board element must call this instead of
- * reading cfg.position directly.
+ * perspPos — Returns cfg.position as a plain array.
+ * Use instead of cfg.position directly so all positioning goes through a central resolver.
  */
 function perspPos(cfg) {
+  return [...cfg.position];
+}
+
+/**
+ * perspRot — Resolves the final [rx, ry, rz] rotation for a CONFIG_3D element.
+ * perspX is added to rotation[0] (forward/backward tilt → shows Z-edge thickness).
+ * perspY is added to rotation[2] (left/right tilt → shows X-edge thickness).
+ * Values are in radians. Use ±0.1 – ±0.5 for a visible 3D depth effect.
+ */
+function perspRot(cfg) {
   return [
-    cfg.position[0] + (cfg.perspX || 0),
-    cfg.position[1],
-    cfg.position[2] + (cfg.perspY || 0),
+    cfg.rotation[0] + (cfg.perspX || 0),
+    cfg.rotation[1],
+    cfg.rotation[2] + (cfg.perspY || 0),
   ];
 }
 
@@ -173,8 +209,8 @@ function perspPos(cfg) {
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Camera ── */
-const CAM_HEIGHT = 10;
-const CAM_ZOOM   = 100;
+const CAM_HEIGHT = 14;
+const CAM_FOV    = 35;
 
 /* ── Player Hand (screen-space, outside any board group) ── */
 const HAND_Y       = 0.12;
@@ -209,7 +245,7 @@ const KNIGHT_ARC_PEAK   = 1.6;    // Y height at apex of the arc
 
 /* ── Shadows ── */
 const SHADOW_CONTACT_OP = 0.20;
-const SHADOW_BLUR       = 3.5;
+const SHADOW_BLUR       = 1.5;
 const SHADOW_GROUND_OP  = 0.30;
 const SHADOW_SKY_OP     = 0.03;
 const SHADOW_GROUND_SC  = 0.8;
@@ -217,7 +253,7 @@ const SHADOW_SKY_SC     = 2.0;
 const SHADOW_MAX_H      = 5.0;
 
 /* ── Deck Hover ── */
-const DECK_HOVER_LIFT = 0.15;
+const DECK_HOVER_LIFT = 0.04;
 const DECK_HOVER_DUR  = 0.25;
 
 /* ── Sample data ── */
@@ -238,32 +274,98 @@ const SAMPLE_KNIGHTS = {
 
 function Table() {
   const texture = useTexture(boardImg);
-  const { width, height, position, rotation } = CONFIG_3D.table;
+  const { width, height } = CONFIG_3D.table;
   return (
-    <mesh rotation={rotation} position={position} receiveShadow>
+    <mesh rotation={perspRot(CONFIG_3D.table)} position={perspPos(CONFIG_3D.table)} receiveShadow>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial map={texture} roughness={0.85} metalness={0.05} />
     </mesh>
   );
 }
 
+/* ── Effetto particelle bianche ── */
+function DeckParticles({ active, topY = 0.25 }) {
+  const ptsRef = useRef();
+  const tlRef  = useRef(null);
+  const COUNT  = 10;
+
+  const positions = useMemo(() => {
+    const buf = new Float32Array(COUNT * 3);
+    for (let i = 0; i < COUNT; i++) {
+      buf[i * 3]     = (Math.random() - 0.5) * 0.55;
+      buf[i * 3 + 1] = 0;
+      buf[i * 3 + 2] = (Math.random() - 0.5) * 0.80;
+    }
+    return buf;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const pts = ptsRef.current;
+    if (!pts) return;
+    tlRef.current?.kill();
+    if (active) {
+      const arr = pts.geometry.attributes.position.array;
+      for (let i = 0; i < COUNT; i++) arr[i * 3 + 1] = 0;
+      pts.geometry.attributes.position.needsUpdate = true;
+      pts.material.opacity = 0;
+      const prx = { t: 0 };
+      tlRef.current = gsap.to(prx, {
+        t: 1, duration: 2.2, ease: 'power1.out', repeat: -1,
+        onUpdate: () => {
+          const a = pts.geometry.attributes.position.array;
+          for (let i = 0; i < COUNT; i++) {
+            a[i * 3 + 1] = prx.t * 0.9 * (0.5 + 0.5 * Math.sin(i * 0.85));
+          }
+          pts.geometry.attributes.position.needsUpdate = true;
+          pts.material.opacity = prx.t < 0.15
+            ? (prx.t / 0.15) * 0.65
+            : (1 - prx.t) * 0.65;
+        },
+      });
+    } else {
+      if (pts.material) pts.material.opacity = 0;
+      tlRef.current?.kill();
+    }
+    return () => tlRef.current?.kill();
+  }, [active]);
+
+  return (
+    <group position={[0, topY, 0]}>
+      <points ref={ptsRef}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          color="#ffffff" size={0.035} transparent opacity={0}
+          depthWrite={false} blending={THREE.AdditiveBlending}
+        />
+      </points>
+    </group>
+  );
+}
+
 function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
-  const cfg = CONFIG_3D[configKey];
+  const cfg      = CONFIG_3D[configKey];
   const groupRef = useRef();
-  const count = countOverride ?? 0;
-  const layers = Math.min(count, 8);
+  const count    = countOverride ?? 0;
+  const layers   = Math.min(count, 8);
+  const [hovered, setHovered] = useState(false);
 
-  /* World position = base position + perspective nudge */
   const [baseX, baseY, baseZ] = perspPos(cfg);
+  const sc = cfg.shadowConfig;
 
-  /* Cards use LOCAL positions — the group handles world placement + scale */
   const cards = useMemo(() =>
     Array.from({ length: layers }, (_, i) => ({
       key: i,
       pos: [0, i * 0.03, 0],
     })), [layers]);
 
+  /* topY = just above the highest card, in local group space */
+  const topY = layers * 0.03 + 0.06;
+
   const handleOver = useCallback(() => {
+    setHovered(true);
     if (!onClick) return;
     document.body.style.cursor = 'pointer';
     if (hoverLift > 0 && groupRef.current) {
@@ -274,6 +376,7 @@ function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
   }, [onClick, hoverLift, baseY]);
 
   const handleOut = useCallback(() => {
+    setHovered(false);
     if (!onClick) return;
     document.body.style.cursor = 'default';
     if (hoverLift > 0 && groupRef.current) {
@@ -284,24 +387,42 @@ function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
   }, [onClick, hoverLift, baseY]);
 
   return (
-    <group
-      ref={groupRef}
-      position={[baseX, baseY, baseZ]}
-      scale={cfg.scale}
-      onClick={onClick}
-      onPointerOver={handleOver}
-      onPointerOut={handleOut}
-    >
-      {cards.map(c => (
-        <Card3D key={c.key} position={c.pos} rotation={cfg.rotation} type="back" faceDown />
-      ))}
-      {count > 0 && (
-        <Card3D
-          position={[0, layers * 0.03 + 0.01, 0]}
-          rotation={cfg.rotation} type="deck" name={`${count}`}
+    <>
+      {/* Per-deck ContactShadows — flat in world space, must live outside any rotated group */}
+      {sc && (
+        <ContactShadows
+          position={[baseX + (sc.offset?.[0] ?? 0), 0.001, baseZ + (sc.offset?.[1] ?? 0)]}
+          opacity={sc.opacity ?? 0.4}
+          blur={sc.blur ?? 2.5}
+          scale={sc.scale ?? 3}
+          far={sc.far ?? 1.5}
+          resolution={sc.resolution ?? 256}
+          color="#000000"
         />
       )}
-    </group>
+      <group
+        ref={groupRef}
+        position={[baseX, baseY, baseZ]}
+        scale={cfg.scale}
+        onClick={onClick}
+        onPointerOver={handleOver}
+        onPointerOut={handleOut}
+      >
+        {cards.map(c => (
+          <Card3D key={c.key} position={c.pos} rotation={perspRot(cfg)} type="back" faceDown
+            topSkew={cfg.topSkew ?? [0, 0]} bottomSkew={cfg.bottomSkew ?? [0, 0]} />
+        ))}
+        {count > 0 && (
+          <Card3D
+            position={[0, layers * 0.03 + 0.01, 0]}
+            rotation={perspRot(cfg)} type="deck" name={`${count}`}
+            topSkew={cfg.topSkew ?? [0, 0]} bottomSkew={cfg.bottomSkew ?? [0, 0]}
+          />
+        )}
+        {/* Ethereal hover particles, floating above the top card */}
+        <DeckParticles active={hovered} topY={topY} />
+      </group>
+    </>
   );
 }
 
@@ -385,9 +506,10 @@ function OppHandCard({ index }) {
    DRAWING CARD — direct flight, deck → hand
    (world-space, no parent group transform)
    ═══════════════════════════════════════════ */
-function DrawingCard({ card, index, deckPos, deckRot, isOpponent, absoluteDelay, onLanded }) {
+function DrawingCard({ card, index, deckPos, deckRot, deckTopSkew = [0, 0], deckBottomSkew = [0, 0], isOpponent, absoluteDelay, onLanded }) {
   const groupRef  = useRef();
   const shadowRef = useRef();
+  const card3dRef = useRef();
   const [revealed, setRevealed] = useState(false);
 
   /* Fixed fan slot (same formula as HandCard / OppHandCard) */
@@ -416,6 +538,15 @@ function DrawingCard({ card, index, deckPos, deckRot, isOpponent, absoluteDelay,
 
     const tl = gsap.timeline({ delay: absoluteDelay });
     tl.addLabel('fly', 0);
+
+    /* Skew: interpolate deck topSkew/bottomSkew → [0,0] (hand cards are always rectangular) */
+    const skewStart = { tx: deckTopSkew[0], ty: deckTopSkew[1], bx: deckBottomSkew[0], by: deckBottomSkew[1] };
+    if (skewStart.tx !== 0 || skewStart.ty !== 0 || skewStart.bx !== 0 || skewStart.by !== 0) {
+      tl.to(skewStart, {
+        tx: 0, ty: 0, bx: 0, by: 0, duration: FLIGHT_DUR, ease: 'power2.inOut',
+        onUpdate: () => card3dRef.current?.userData?._setSkew?.(skewStart.tx, skewStart.ty, skewStart.bx, skewStart.by),
+      }, 'fly');
+    }
 
     tl.to(g.position, {
       x: targetX, z: targetZ,
@@ -482,6 +613,9 @@ function DrawingCard({ card, index, deckPos, deckRot, isOpponent, absoluteDelay,
     <>
       <group ref={groupRef} visible={false}>
         <Card3D
+          ref={card3dRef}
+          topSkew={deckTopSkew}
+          bottomSkew={deckBottomSkew}
           faceDown={isOpponent || !revealed}
           type={!isOpponent && revealed ? (card?.type || 'arma') : 'back'}
           name={!isOpponent && revealed ? (card?.name || '?') : ''}
@@ -510,6 +644,7 @@ function DrawingCard({ card, index, deckPos, deckRot, isOpponent, absoluteDelay,
 function KnightDrawCard({ knightData, deckConfigKey, slotConfigKey, delay, onLanded }) {
   const groupRef  = useRef();
   const shadowRef = useRef();
+  const card3dRef = useRef();
   const [revealed, setRevealed] = useState(false);
 
   const deckCfg = CONFIG_3D[deckConfigKey];
@@ -520,23 +655,41 @@ function KnightDrawCard({ knightData, deckConfigKey, slotConfigKey, delay, onLan
     const s = shadowRef.current;
     if (!g) return;
 
-    /* ── Start: face-down at deck top (perspX/perspY applied via perspPos) ── */
+    /* ── Start: face-down at deck top ── */
     const [dX, dY, dZ] = perspPos(deckCfg);
     g.position.set(dX, dY + STACK_TOP, dZ);
-    g.rotation.set(deckCfg.rotation[0], deckCfg.rotation[1], deckCfg.rotation[2]);
+    const dr = perspRot(deckCfg);
+    g.rotation.set(dr[0], dr[1], dr[2]);
     g.scale.set(deckCfg.scale[0], deckCfg.scale[1], deckCfg.scale[2]);
     g.visible = true;
     syncShadow(s, g);
 
-    /* ── Target: slot position with perspX/perspY applied ── */
+    /* ── Target: slot position + perspective tilt ── */
     const targetPos = perspPos(slotCfg);
-    const targetRot = slotCfg.rotation;
+    const targetRot = perspRot(slotCfg);
     const targetSc  = slotCfg.scale;
 
     const shadowUp = () => syncShadow(s, g);
 
+    const startTopSkew    = deckCfg.topSkew    ?? [0, 0];
+    const startBottomSkew = deckCfg.bottomSkew ?? [0, 0];
+    const endTopSkew      = slotCfg.topSkew    ?? [0, 0];
+    const endBottomSkew   = slotCfg.bottomSkew ?? [0, 0];
+
     const tl = gsap.timeline({ delay });
     tl.addLabel('fly', 0);
+
+    /* Skew: interpolate deck skew → slot skew during flight */
+    const skewProxy = { tx: startTopSkew[0], ty: startTopSkew[1], bx: startBottomSkew[0], by: startBottomSkew[1] };
+    const needsSkewAnim = skewProxy.tx !== endTopSkew[0] || skewProxy.ty !== endTopSkew[1] ||
+                          skewProxy.bx !== endBottomSkew[0] || skewProxy.by !== endBottomSkew[1];
+    if (needsSkewAnim) {
+      tl.to(skewProxy, {
+        tx: endTopSkew[0], ty: endTopSkew[1], bx: endBottomSkew[0], by: endBottomSkew[1],
+        duration: KNIGHT_FLIGHT_DUR, ease: 'power2.inOut',
+        onUpdate: () => card3dRef.current?.userData?._setSkew?.(skewProxy.tx, skewProxy.ty, skewProxy.bx, skewProxy.by),
+      }, 'fly');
+    }
 
     /* XZ: glide from deck to knight slot */
     tl.to(g.position, {
@@ -602,6 +755,9 @@ function KnightDrawCard({ knightData, deckConfigKey, slotConfigKey, delay, onLan
     <>
       <group ref={groupRef} visible={false}>
         <Card3D
+          ref={card3dRef}
+          topSkew={deckCfg.topSkew ?? [0, 0]}
+          bottomSkew={deckCfg.bottomSkew ?? [0, 0]}
           faceDown={!revealed}
           type={revealed ? 'knight' : 'back'}
           name={revealed ? knightData.name : ''}
@@ -732,13 +888,14 @@ function Scene({ gameState }) {
 
     const equipCfg = CONFIG_3D.playerEquipSlot;
     const [eqX, eqY, eqZ] = perspPos(equipCfg);
+    const eqRot = perspRot(equipCfg);
     const target = {
       x: eqX,
       y: eqY,
       z: eqZ,
-      rotX: equipCfg.rotation[0],
-      rotY: equipCfg.rotation[1],
-      rotZ: equipCfg.rotation[2],
+      rotX: eqRot[0],
+      rotY: eqRot[1],
+      rotZ: eqRot[2],
     };
 
     setPlayedCards(prev => new Set(prev).add(drawIdx));
@@ -762,12 +919,12 @@ function Scene({ gameState }) {
   return (
     <>
       {/* ── Camera ── */}
-      <OrthographicCamera
+      <PerspectiveCamera
         makeDefault
+        fov={CAM_FOV}
         position={[0, CAM_HEIGHT, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
-        zoom={CAM_ZOOM}
-        near={0.1} far={100}
+        near={0.1} far={200}
       />
 
       {/* ── Lighting ── */}
@@ -851,8 +1008,10 @@ function Scene({ gameState }) {
       {p1KnightReady && (
         <Card3D
           position={perspPos(CONFIG_3D.playerKnightSlot)}
-          rotation={CONFIG_3D.playerKnightSlot.rotation}
+          rotation={perspRot(CONFIG_3D.playerKnightSlot)}
           scale={CONFIG_3D.playerKnightSlot.scale}
+          topSkew={CONFIG_3D.playerKnightSlot.topSkew ?? [0, 0]}
+          bottomSkew={CONFIG_3D.playerKnightSlot.bottomSkew ?? [0, 0]}
           type="knight"
           name={SAMPLE_KNIGHTS.p1.name}
           atk={SAMPLE_KNIGHTS.p1.atk}
@@ -863,8 +1022,10 @@ function Scene({ gameState }) {
       {p2KnightReady && (
         <Card3D
           position={perspPos(CONFIG_3D.opponentKnightSlot)}
-          rotation={CONFIG_3D.opponentKnightSlot.rotation}
+          rotation={perspRot(CONFIG_3D.opponentKnightSlot)}
           scale={CONFIG_3D.opponentKnightSlot.scale}
+          topSkew={CONFIG_3D.opponentKnightSlot.topSkew ?? [0, 0]}
+          bottomSkew={CONFIG_3D.opponentKnightSlot.bottomSkew ?? [0, 0]}
           type="knight"
           name={SAMPLE_KNIGHTS.p2.name}
           atk={SAMPLE_KNIGHTS.p2.atk}
@@ -874,7 +1035,7 @@ function Scene({ gameState }) {
       )}
 
       {/* ── Clash Zone ring (dead centre between the two knights) ── */}
-      <mesh rotation={clash.rotation} position={perspPos(clash)} scale={clash.scale}>
+      <mesh rotation={perspRot(clash)} position={perspPos(clash)} scale={clash.scale}>
         <ringGeometry args={[clash.innerRadius, clash.outerRadius, 32]} />
         <meshStandardMaterial
           color="#8a0303" emissive="#8a0303" emissiveIntensity={0.5}
@@ -889,7 +1050,9 @@ function Scene({ gameState }) {
             key={`p1draw-${i}`}
             card={card} index={i}
             deckPos={perspPos(CONFIG_3D.playerMainDeck)}
-            deckRot={CONFIG_3D.playerMainDeck.rotation}
+            deckRot={perspRot(CONFIG_3D.playerMainDeck)}
+            deckTopSkew={CONFIG_3D.playerMainDeck.topSkew ?? [0, 0]}
+            deckBottomSkew={CONFIG_3D.playerMainDeck.bottomSkew ?? [0, 0]}
             isOpponent={false}
             absoluteDelay={i * CARD_ANIM_DUR}
             onLanded={handleP1Landed}
@@ -904,7 +1067,9 @@ function Scene({ gameState }) {
             key={`p2draw-${i}`}
             card={null} index={i}
             deckPos={perspPos(CONFIG_3D.opponentMainDeck)}
-            deckRot={CONFIG_3D.opponentMainDeck.rotation}
+            deckRot={perspRot(CONFIG_3D.opponentMainDeck)}
+            deckTopSkew={CONFIG_3D.opponentMainDeck.topSkew ?? [0, 0]}
+            deckBottomSkew={CONFIG_3D.opponentMainDeck.bottomSkew ?? [0, 0]}
             isOpponent
             absoluteDelay={i * CARD_ANIM_DUR}
             onLanded={handleP2Landed}

@@ -7,7 +7,7 @@
  *
  * All animations use refs — no React state transitions, no spring libs.
  */
-import { useMemo, useRef, useCallback, useImperativeHandle } from 'react';
+import { useMemo, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
 import { Text } from '@react-three/drei';
 import { gsap } from 'gsap';
 
@@ -31,6 +31,11 @@ const TYPE_ICONS = {
 
 /* ═══════ GSAP Animation Helpers (exported for use by parent) ═══════ */
 
+/* ── Hand card hover vertical lift (world units, Y axis toward camera).
+   ↓ Adjust this number to change how high hand cards pop up on hover: ↓
+   File: src/pages/DevSandbox/Card3D.jsx  →  HAND_HOVER_LIFT_Y           */
+const HAND_HOVER_LIFT_Y = 0.3;
+
 /**
  * Hover IN: lift card on Y axis ONLY. No rotation change. No perspective warp.
  * The card stays flat facing the camera — screen-space hover.
@@ -38,7 +43,7 @@ const TYPE_ICONS = {
 export function animateHoverIn(group, { restY, targetScale }) {
   gsap.killTweensOf(group.position);
   gsap.killTweensOf(group.scale);
-  gsap.to(group.position, { y: restY + 0.5, duration: 0.18, ease: 'power2.out', overwrite: true });
+  gsap.to(group.position, { y: restY + HAND_HOVER_LIFT_Y, duration: 0.18, ease: 'power2.out', overwrite: true });
   gsap.to(group.scale, { x: targetScale * 1.12, y: targetScale * 1.12, z: targetScale * 1.12, duration: 0.18, ease: 'power2.out', overwrite: true });
 }
 
@@ -120,6 +125,8 @@ export default function Card3D({
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   scale = 1,
+  topSkew = [0, 0],
+  bottomSkew = [0, 0],
   hoverable = false,
   hoverLift = 0.8,
   renderOrder = 0,
@@ -130,6 +137,70 @@ export default function Card3D({
 
   /* Expose internal group ref to parent (React 19 ref-as-prop) */
   useImperativeHandle(ref, () => groupRef.current);
+
+  /* ── Vector shear (skew) distortion ─────────────────────────────────────
+     GPU-side: two vec2 uniforms injected into MeshStandardMaterial's shader.
+       topSkew    = [x, y]  →  translates top-half vertices    (Y > 0) on XY
+       bottomSkew = [x, y]  →  translates bottom-half vertices (Y < 0) on XY
+     [0, 0] = no deformation (perfect rectangle).
+     Both halves slide in parallel — true parallelogram / rhombus shear.
+     Zero CPU cost at runtime: only uniform floats are mutated per frame.
+     Animate via group.userData._setSkew(tx, ty, bx, by) from GSAP.
+  ─────────────────────────────────────────────────────────────────────────── */
+  const bodyMeshRef   = useRef();
+  const borderMeshRef = useRef();
+  const topSkewUni    = useRef({ value: { x: 0, y: 0 } });
+  const bottomSkewUni = useRef({ value: { x: 0, y: 0 } });
+
+  /* Install shader patch once on mount; expose _setSkew via group userData */
+  useEffect(() => {
+    const install = (mesh) => {
+      if (!mesh?.material) return;
+      const m = mesh.material;
+      m.onBeforeCompile = (shader) => {
+        shader.uniforms.topSkew    = topSkewUni.current;
+        shader.uniforms.bottomSkew = bottomSkewUni.current;
+        shader.vertexShader =
+          'uniform vec2 topSkew;\nuniform vec2 bottomSkew;\n' +
+          shader.vertexShader.replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>
+            if (position.y > 0.0) {
+              transformed.x += topSkew.x;
+              transformed.y += topSkew.y;
+            } else if (position.y < 0.0) {
+              transformed.x += bottomSkew.x;
+              transformed.y += bottomSkew.y;
+            }`,
+          );
+      };
+      m.needsUpdate = true;
+    };
+    install(bodyMeshRef.current);
+    install(borderMeshRef.current);
+    topSkewUni.current.value.x    = topSkew[0];
+    topSkewUni.current.value.y    = topSkew[1];
+    bottomSkewUni.current.value.x = bottomSkew[0];
+    bottomSkewUni.current.value.y = bottomSkew[1];
+    if (groupRef.current) {
+      groupRef.current.userData._setSkew = (tx, ty, bx, by) => {
+        topSkewUni.current.value.x    = tx;
+        topSkewUni.current.value.y    = ty;
+        bottomSkewUni.current.value.x = bx;
+        bottomSkewUni.current.value.y = by;
+      };
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Sync uniforms when topSkew / bottomSkew props change (CONFIG_3D-driven) */
+  useEffect(() => {
+    topSkewUni.current.value.x    = topSkew[0];
+    topSkewUni.current.value.y    = topSkew[1];
+    bottomSkewUni.current.value.x = bottomSkew[0];
+    bottomSkewUni.current.value.y = bottomSkew[1];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topSkew[0], topSkew[1], bottomSkew[0], bottomSkew[1]]);
 
   const faceColor   = useMemo(() => TYPE_COLORS[type] || '#111', [type]);
   const borderColor = useMemo(() => BORDER_COLORS[type] || '#444', [type]);
@@ -177,13 +248,13 @@ export default function Card3D({
       onClick={onClick}
     >
       {/* ── Card body (real 3D box) ── */}
-      <mesh castShadow receiveShadow>
+      <mesh ref={bodyMeshRef} castShadow receiveShadow>
         <boxGeometry args={[W, H, D]} />
         <meshStandardMaterial color={isBack ? '#0a0a0a' : faceColor} roughness={0.7} metalness={0.1} />
       </mesh>
 
       {/* ── Border frame ── */}
-      <mesh position={[0, 0, -D * 0.3]}>
+      <mesh ref={borderMeshRef} position={[0, 0, -D * 0.3]}>
         <boxGeometry args={[W + 0.04, H + 0.04, D * 0.6]} />
         <meshStandardMaterial color={borderColor} roughness={0.6} metalness={0.15} />
       </mesh>
