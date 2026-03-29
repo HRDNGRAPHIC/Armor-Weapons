@@ -91,7 +91,7 @@ function getFinalStats(playerState, activeTerrain) {
   return {
     atk: Math.max(0, Math.min(ATK_CAP, atk)),
     def: Math.max(0, Math.min(DEF_CAP, def)),
-    pa:  Math.max(0, Math.min(PA_CAP, pa)),
+    pa:  Math.max(0, pa),
   };
 }
 
@@ -202,6 +202,26 @@ const useGameStore = create((set, get) => ({
     base.p2.cardsLeft  = 5;
     base.p2.weaponsLeft = 45;
 
+    /* ── Round 1 no-terrain: assicura che le ultime 3 carte del mazzo
+       (le prime ad essere pescate con .pop()) non siano Terreni.
+       Se ce n'è uno, scambialo con la prima carta non-terreno più in profondità. ── */
+    const sanitizeDeckTop = (deck) => {
+      const len = deck.length;
+      for (let i = len - 1; i >= Math.max(0, len - 3); i--) {
+        if (deck[i] && deck[i].type === 'terreno') {
+          /* Cerca la prima carta non-terreno più in profondità */
+          for (let j = i - 1; j >= 0; j--) {
+            if (deck[j] && deck[j].type !== 'terreno') {
+              [deck[i], deck[j]] = [deck[j], deck[i]];
+              break;
+            }
+          }
+        }
+      }
+    };
+    sanitizeDeckTop(base.p1.weaponDeck);
+    sanitizeDeckTop(base.p2.weaponDeck);
+
     base.isInitializing = true;
 
     set({
@@ -268,8 +288,8 @@ const useGameStore = create((set, get) => ({
     const s = get();
     const p = playerNum === 1 ? s.p1 : s.p2;
 
-    if (s.turn !== playerNum || s.gameOver || s.isInitializing) return [];
-    if (p.hasDrawnWeapon || p.weaponsLeft <= 0) return [];
+    if (s.gameOver || s.isInitializing) return [];
+    if (p.weaponsLeft <= 0) return [];
     if (p.buffs.some(b => b.id === 'noDraw')) return [];
 
     const emptySlots = p.weaponSlots
@@ -285,16 +305,20 @@ const useGameStore = create((set, get) => ({
     const terrainCards   = [];
 
     for (const slotIdx of emptySlots) {
-      if (newWeaponsLeft <= 0) break;
-      const card = newWeaponDeck.pop();
-      newWeaponsLeft--;
+      /* Continua a pescare per lo stesso slot finché non esce un'arma
+         (i terreni vengono attivati e si ripesca, come nel gioco 8-bit) */
+      let filled = false;
+      while (!filled && newWeaponsLeft > 0) {
+        const card = newWeaponDeck.pop();
+        newWeaponsLeft--;
 
-      if (card.type === 'terreno') {
-        /* Il terreno va in coda separata — il layer 3D mostrerà l'overlay */
-        terrainCards.push({ card, slotIdx });
-      } else {
-        newSlots[slotIdx] = card;
-        drawnCards.push({ card, slotIdx });
+        if (card.type === 'terreno') {
+          terrainCards.push({ card, slotIdx });
+        } else {
+          newSlots[slotIdx] = card;
+          drawnCards.push({ card, slotIdx });
+          filled = true;
+        }
       }
     }
 
@@ -504,7 +528,7 @@ const useGameStore = create((set, get) => ({
             break;
 
           case 'sidro':
-            newKnight.pa = Math.min(PA_CAP, newKnight.pa + 3);
+            newKnight.pa = newKnight.pa + 3;
             effectPayload.stat = 'pa';
             effectPayload.delta = 3;
             break;
@@ -829,37 +853,39 @@ const useGameStore = create((set, get) => ({
     const wait = (ms) => new Promise(r => setTimeout(r, ms));
     const s = get;
 
-    /* Pausa iniziale — dà tempo al layer 3D di mostrare il cambio turno */
-    await wait(1000);
+    /* ── "Thinking" iniziale — simula riflessione dell'AI ── */
+    await wait(1200 + Math.random() * 800);
     if (s().gameOver || s().turn !== 2) return;
 
     /* 1. Pesca cavaliere se non presente */
     if (!s().p2.activeCard && s().p2.cardsLeft > 0) {
       s().drawCard(2);
-      await wait(1000);
+      await wait(1400 + Math.random() * 400);
     }
     if (s().gameOver) return;
 
-    /* 2. Pesca equipaggiamento */
+    /* 2. Pesca equipaggiamento — pausa "thinking" prima */
     if (!s().p2.hasDrawnWeapon && s().p2.weaponsLeft > 0 && s().p2.weaponSlots.includes(null)) {
+      await wait(600 + Math.random() * 400);
       s().drawWeapon(2);
-      await wait(1200);
+      await wait(1400 + Math.random() * 400);
     }
     if (s().gameOver) return;
 
-    /* 3. Scarta armi troppo costose (PA insufficiente) — usa il primo scarto gratuito */
+    /* 3. Scarta armi troppo costose (PA insufficiente) — pausa prima dello scarto */
     if (!s().p2.hasUsedRedraw && s().p2.activeCard) {
       const uselessSlot = s().p2.weaponSlots.findIndex(w =>
         w !== null && w.cu > s().p2.activeCard.pa
       );
       if (uselessSlot !== -1) {
+        await wait(800 + Math.random() * 600);
         s().discardWeapon(2, uselessSlot);
-        await wait(1200);
+        await wait(1500 + Math.random() * 500);
       }
     }
     if (s().gameOver) return;
 
-    /* 4. Equipaggia armi da sinistra a destra se PA sufficiente */
+    /* 4. Equipaggia armi da sinistra a destra se PA sufficiente — thinking per ogni scelta */
     if (s().p2.activeCard) {
       for (let i = 0; i < 3; i++) {
         const current = s();
@@ -874,23 +900,27 @@ const useGameStore = create((set, get) => ({
           continue;
         }
 
+        /* "Thinking" prima di ogni equipaggiamento */
+        await wait(700 + Math.random() * 600);
         current.equipWeapon(2, i);
-        await wait(4800);
+        await wait(5000 + Math.random() * 500);
         if (s().gameOver) return;
       }
     }
     if (s().gameOver) return;
 
-    /* 5. Attacca se possibile */
+    /* 5. "Thinking" prima dell'attacco */
     const final = s();
     if (final.p2.activeCard && final.p1.activeCard && !final.hasAttacked &&
         !final.p2.buffs.some(b => b.id === 'noAttack' || b.id === 'sabbia')) {
+      await wait(1000 + Math.random() * 600);
       final.attack(2);
-      await wait(2500); /* attesa lunga per dissoluzione cavaliere nel layer 3D */
+      await wait(2800); /* attesa per dissoluzione cavaliere nel layer 3D */
     }
 
-    /* 6. Fine turno */
+    /* 6. Pausa finale prima di passare il turno */
     if (!s().gameOver && s().turn === 2) {
+      await wait(600 + Math.random() * 400);
       s().endTurn(2);
     }
   },

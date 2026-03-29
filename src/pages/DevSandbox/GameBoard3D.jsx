@@ -12,14 +12,17 @@
  *   7. Sollevamento al hover del mazzo (mazzo armi G1)
  */
 import { useMemo, useRef, useEffect, Suspense, useState, useCallback } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { PerspectiveCamera, useTexture, ContactShadows } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { PerspectiveCamera, useTexture, Html } from '@react-three/drei';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
 import Card3D from './Card3D';
 import useGameStore from './useGameStore';
 import VFXManager from './vfx/VFXManager';
 import boardImg from '../../assets/gameboard_test.png';
+
+/* Pre-caricamento texture board — previene Suspense remount */
+useTexture.preload(boardImg);
 
 
 /* ╔═══════════════════════════════════════════════════════════════════╗
@@ -58,7 +61,7 @@ const CONFIG_3D = {
     scale:    [1, 1, 1],
     perspX:   0,
     perspY:   0,
-    shadowConfig: null,                       // il tavolo non ha ombra per singolo elemento
+    shadowConfig: null,                      
     topSkew:    [0, 0],                       // traslazione XY dei vertici della metà superiore (Y > 0); [0,0] = nessuna deformazione
     bottomSkew: [0, 0],                       // traslazione XY dei vertici della metà inferiore (Y < 0); [0,0] = nessuna deformazione
   },
@@ -140,7 +143,7 @@ const CONFIG_3D = {
     scale:    [1.6, 1.6, 1.6],
     perspX:   0,
     perspY:   0,
-    shadowConfig: { opacity: 0.35, blur: 4.0, scale: 4.0, offset: [0, 0], far: 2.0 },
+    shadowConfig: null,
     topSkew:    [0.03, 0],
     bottomSkew: [0, 0],
   },
@@ -154,7 +157,7 @@ const CONFIG_3D = {
     scale:    [1.6, 1.6, 1.6],
     perspX:   0,
     perspY:   0,
-    shadowConfig: { opacity: 0.35, blur: 4.0, scale: 4.0, offset: [0, 0], far: 2.0 },
+    shadowConfig: null,
     topSkew:    [-0.03, 0],
     bottomSkew: [0, 0],
   },
@@ -185,7 +188,7 @@ const CONFIG_3D = {
     scale:    [1, 1, 1],
     perspX:   0,
     perspY:   0,
-    shadowConfig: { opacity: 0.40, blur: 3.5, scale: 3.8, offset: [0, 0], far: 1.5 },
+    shadowConfig: null,
     topSkew:    [0.03, 0],
     bottomSkew: [0, 0],
   },
@@ -201,7 +204,7 @@ const CONFIG_3D = {
     scale:    [1.6, 1.6, 1.6],
     perspX:   0,
     perspY:   0,
-    shadowConfig: { opacity: 0.40, blur: 3.5, scale: 3.8, offset: [0, 0], far: 1.5 },
+    shadowConfig: null,
     topSkew:    [0, 0],
     bottomSkew: [0, 0],
   },
@@ -219,6 +222,61 @@ const CONFIG_3D = {
     shadowConfig: null,
     topSkew:    [0, 0],
     bottomSkew: [0, 0],
+  },
+
+  /* ─────────────────────────────────────────────────
+     Terreno Attivo — slot visuale per la carta terreno
+     Posizione fisso in alto a sinistra, frontale alla camera.
+     ───────────────────────────────────────────────── */
+  activeTerrain: {
+    position: [-7.5, 0.12, -3.2],
+    rotation: [-Math.PI / 2, 0, 0],
+    scale:    [1.8, 1.8, 1.8],
+    perspX:   0,
+    perspY:   0,
+    topSkew:    [0, 0],
+    bottomSkew: [0, 0],
+  },
+
+  /* ─────────────────────────────────────────────────
+     Mano del Giocatore — parametri globali del ventaglio
+     ───────────────────────────────────────────────── */
+  playerHandConfig: {
+    baseY:   0.03,
+    baseZ:   4.0,
+    scale:   2.4,
+    gap:     1.4,
+    fanRot:  0.03,
+    zStep:   0.003,
+    hoverLiftY:      0.35,    // sollevamento Y al hover
+    hoverLiftZ:     -0.5,     // avvicinamento Z al hover (negativo = verso camera)
+    hoverScale:      1.12,    // fattore scala al hover (moltiplicato per scale)
+    hoverDuration:   0.18,    // durata animazione hover in (secondi)
+    hoverOutDuration: 0.22,   // durata animazione hover out (secondi)
+  },
+
+  /* ─────────────────────────────────────────────────
+     Hotzone Scarto — stato della carta quando entra nell'area
+     ───────────────────────────────────────────────── */
+  hotzoneCardState: {
+    rotation: [0, 0, Math.PI / 2],        // rotazione XYZ applicata alla carta in hotzone
+    scaleFactor: 0.85,                     // fattore scala (moltiplicato per HAND_CARD_SC)
+    tintColor: '#ff4444',                  // colore tinta bordo (futuro)
+  },
+
+  /* ─────────────────────────────────────────────────
+     Mano dell'Avversario — parametri globali del ventaglio
+     Modifica 'scale' per ingrandire/rimpicciolire le carte nemiche.
+     ───────────────────────────────────────────────── */
+  opponentHandConfig: {
+    baseY:         0.12,
+    baseZ:        -4.0,
+    scale:         1.8,
+    gap:           0.72,
+    fanRot:        0.065,
+    yCurve:        0.06,
+    zStep:         0.005,
+    hoverYOffset:  0.30,
   },
 };
 
@@ -254,20 +312,22 @@ const CAM_HEIGHT = 14;
 const CAM_FOV    = 35;
 
 /* ── Mano del Giocatore (spazio-schermo, fuori da qualsiasi gruppo del tabellone) ── */
-const HAND_Y       = 0.30;
-const HAND_Z       = 4.0;
-const HAND_CARD_SC = 2.2;
-const HAND_SPREAD  = 1.3;
-const HAND_FAN_ROT = 0.03;
-const HAND_Z_STEP  = 0.008;
+const HAND_Y       = CONFIG_3D.playerHandConfig.baseY;
+const HAND_Z       = CONFIG_3D.playerHandConfig.baseZ;
+const HAND_CARD_SC = CONFIG_3D.playerHandConfig.scale;
+const HAND_SPREAD  = CONFIG_3D.playerHandConfig.gap;
+const HAND_FAN_ROT = CONFIG_3D.playerHandConfig.fanRot;
+const HAND_Z_STEP  = CONFIG_3D.playerHandConfig.zStep;
 
 /* ── Mano dell'Avversario ── */
-const OPP_HAND_Y  = 0.12;
-const OPP_HAND_Z  = -4.0;
-const OPP_HAND_SC = 1.4;
-const OPP_SPREAD  = 0.80;
-const OPP_FAN_ROT = 0.03;
-const OPP_Z_STEP  = 0.005;
+const OPP_HAND_BASE_Y = CONFIG_3D.opponentHandConfig.baseY;
+const OPP_HAND_HOVER_Y_OFFSET = CONFIG_3D.opponentHandConfig.hoverYOffset;
+const OPP_HAND_Z  = CONFIG_3D.opponentHandConfig.baseZ;
+const OPP_HAND_SC = CONFIG_3D.opponentHandConfig.scale;
+const OPP_SPREAD  = CONFIG_3D.opponentHandConfig.gap;
+const OPP_FAN_ROT = CONFIG_3D.opponentHandConfig.fanRot;
+const OPP_Y_CURVE = CONFIG_3D.opponentHandConfig.yCurve;
+const OPP_Z_STEP  = CONFIG_3D.opponentHandConfig.zStep;
 
 /* ── Tempi della Fase di Pesca ── */
 const MAX_HAND_SIZE  = 3;
@@ -284,9 +344,7 @@ const KNIGHT_STAGGER    = 0.5;    // secondi tra le estrazioni del cavaliere G1 
 const KNIGHT_FLIGHT_DUR = 0.80;   // durata totale del volo
 const KNIGHT_ARC_PEAK   = 1.6;    // altezza Y all'apice dell'arco
 
-/* ── Ombre ── */
-const SHADOW_CONTACT_OP = 0.20;
-const SHADOW_BLUR       = 1.5;
+/* ── Ombre in volo (FlightShadow) ── */
 const SHADOW_GROUND_OP  = 0.30;
 const SHADOW_SKY_OP     = 0.03;
 const SHADOW_GROUND_SC  = 0.8;
@@ -296,6 +354,37 @@ const SHADOW_MAX_H      = 5.0;
 /* ── Hover Mazzo ── */
 const DECK_HOVER_LIFT = 0.04;
 const DECK_HOVER_DUR  = 0.25;
+
+/* ── Hover Mano Giocatore ── */
+const HAND_HOVER_LIFT_Y  = CONFIG_3D.playerHandConfig.hoverLiftY;
+const HAND_HOVER_LIFT_Z  = CONFIG_3D.playerHandConfig.hoverLiftZ;
+const HAND_HOVER_SC_MULT = CONFIG_3D.playerHandConfig.hoverScale;
+const HAND_HOVER_IN_DUR  = CONFIG_3D.playerHandConfig.hoverDuration;
+const HAND_HOVER_OUT_DUR = CONFIG_3D.playerHandConfig.hoverOutDuration;
+
+/* ── Hotzone Scarto (area rettangolare tra i due mazzi principali) ── */
+const HOTZONE_X_MIN = CONFIG_3D.playerMainDeck.position[0] - 1.5;
+const HOTZONE_X_MAX = CONFIG_3D.playerMainDeck.position[0] + 1.5;
+const HOTZONE_Z_MIN = CONFIG_3D.opponentMainDeck.position[2] - 0.5;
+const HOTZONE_Z_MAX = CONFIG_3D.playerMainDeck.position[2] + 0.5;
+const HOTZONE_W     = HOTZONE_X_MAX - HOTZONE_X_MIN;
+const HOTZONE_H     = HOTZONE_Z_MAX - HOTZONE_Z_MIN;
+const HOTZONE_CX    = (HOTZONE_X_MIN + HOTZONE_X_MAX) / 2;
+const HOTZONE_CZ    = (HOTZONE_Z_MIN + HOTZONE_Z_MAX) / 2;
+
+/* ── Hotzone Card State (from CONFIG_3D) ── */
+const HZ_ROT          = CONFIG_3D.hotzoneCardState.rotation;
+const HZ_SCALE_FACTOR = CONFIG_3D.hotzoneCardState.scaleFactor;
+
+/* ── Debug: impostare a true per visualizzare la hotzone ── */
+const DEBUG_HOTZONE = false;
+
+/* ── Animazione Rivelazione Terreno ── */
+const TERRAIN_REVEAL_RISE_DUR  = 0.50;  // volo dal mazzo al centro
+const TERRAIN_REVEAL_STALL     = 1.00;  // pausa a mezz'aria per leggere
+const TERRAIN_REVEAL_FLY_DUR   = 0.45;  // volo dal centro alla posizione finale
+const TERRAIN_REVEAL_ARC_PEAK  = 2.5;   // altezza massima durante il volo
+const TERRAIN_REVEAL_STALL_SC  = 2.8;   // scala durante lo stallo
 
 /* ── Tempi sequenza giocata carta ── */
 const RISE_DUR         = 0.40;   // mano → centro schermo
@@ -384,7 +473,7 @@ function DeckParticles({ active, topY = 0.25 }) {
 
   return (
     <group position={[0, topY, 0]}>
-      <points ref={ptsRef}>
+      <points ref={ptsRef} raycast={() => null}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         </bufferGeometry>
@@ -405,25 +494,6 @@ function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
   const [hovered, setHovered] = useState(false);
 
   const [baseX, baseY, baseZ] = perspPos(cfg);
-  const sc = cfg.shadowConfig;
-
-  /* Rotazione ombra derivata da sc.leftSkew / sc.rightSkew:
-     - componente X delle due coppie → inclinazione attorno all'asse X (avanti/indietro)
-     - componente Y delle due coppie → inclinazione attorno all'asse Z (sinistra/destra)
-     Formula: differenza destra−sinistra, che produce l'angolo di lean netto. */
-  const shadowRot = useMemo(() => {
-    if (!sc) return undefined;
-    const lx = sc.leftSkew?.[0]  ?? 0;
-    const ly = sc.leftSkew?.[1]  ?? 0;
-    const rx = sc.rightSkew?.[0] ?? 0;
-    const ry = sc.rightSkew?.[1] ?? 0;
-    if (lx === 0 && ly === 0 && rx === 0 && ry === 0) return undefined;
-    return [
-      lx - rx,   // tilt attorno X: lato sinistro giù / lato destro su
-      0,
-      ry - ly,   // tilt attorno Z: lato destro su / lato sinistro giù
-    ];
-  }, [sc]);
 
   const cards = useMemo(() =>
     Array.from({ length: layers }, (_, i) => ({
@@ -434,22 +504,22 @@ function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
   /* topY = just above the highest card, in local group space */
   const topY = layers * 0.03 + 0.06;
 
-  const handleOver = useCallback(() => {
+  const handleOver = useCallback((e) => {
+    e?.stopPropagation();
     setHovered(true);
-    if (!onClick) return;
     document.body.style.cursor = 'pointer';
-    if (hoverLift > 0 && groupRef.current) {
+    if (onClick && hoverLift > 0 && groupRef.current) {
       gsap.to(groupRef.current.position, {
         y: baseY + hoverLift, duration: DECK_HOVER_DUR, ease: 'power2.out', overwrite: true,
       });
     }
   }, [onClick, hoverLift, baseY]);
 
-  const handleOut = useCallback(() => {
+  const handleOut = useCallback((e) => {
+    e?.stopPropagation();
     setHovered(false);
-    if (!onClick) return;
     document.body.style.cursor = 'default';
-    if (hoverLift > 0 && groupRef.current) {
+    if (onClick && hoverLift > 0 && groupRef.current) {
       gsap.to(groupRef.current.position, {
         y: baseY, duration: DECK_HOVER_DUR, ease: 'power2.inOut', overwrite: true,
       });
@@ -458,20 +528,6 @@ function DeckStack({ configKey, countOverride, onClick, hoverLift = 0 }) {
 
   return (
     <>
-      {/* Per-deck ContactShadows — piatta in world space, fuori da qualsiasi gruppo ruotato.
-           rotation applica l'inclinazione del piano derivata da sc.leftSkew / sc.rightSkew. */}
-      {sc && (
-        <ContactShadows
-          position={[baseX + (sc.offset?.[0] ?? 0), 0.001, baseZ + (sc.offset?.[1] ?? 0)]}
-          opacity={sc.opacity ?? 0.4}
-          blur={sc.blur ?? 2.5}
-          scale={sc.scale ?? 3}
-          far={sc.far ?? 1.5}
-          resolution={sc.resolution ?? 256}
-          color="#000000"
-          {...(shadowRot && { rotation: shadowRot })}
-        />
-      )}
       <group
         ref={groupRef}
         position={[baseX, baseY, baseZ]}
@@ -528,81 +584,262 @@ function syncShadow(shadow, card) {
 
 
 /* ═══════════════════════════════════════════
-   CARTA IN MANO — posizione a ventaglio FISSA basata su _drawIdx.
-   Le carte non si riposizionano mai quando arrivano o escono le altre.
+   CARTA IN MANO — posizioni centrate dinamicamente + Drag & Drop per scarto.
+   Trascinare nella Hotzone (tra i due mazzi) → ruota + rilascio = burn + scarto.
    ═══════════════════════════════════════════ */
-function HandCard({ card, onPlay, onDiscard, totalCount }) {
-  const groupRef = useRef();
-  const lastCtxTime = useRef(0);
 
-  const offset = card._drawIdx - (totalCount - 1) / 2;
+/* ── Flag globale: qualcuno sta trascinando → disabilita hover su tutte le HandCard ── */
+let _anyDragging = false;
+
+/* Piano di riferimento per il drag (Y=0, il tavolo) */
+const _dragPlane   = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const _dragInter   = new THREE.Vector3();
+const _dragPointer = new THREE.Vector2();
+
+function HandCard({ card, onPlay, onDiscard, visibleIndex, visibleCount }) {
+  const groupRef   = useRef();
+  const initialSet = useRef(false);
+  const dragging   = useRef(false);
+  const dragStart  = useRef(null);        // { worldX, worldZ, gx, gz } al pointerDown
+  const inHotzone  = useRef(false);
+  const didDrag    = useRef(false);        // true se il trascinamento ha superato la soglia
+  const isHovered  = useRef(false);
+  const { camera, gl } = useThree();
+
+  /* Calcolo posizione centrata in base all'indice visibile */
+  const offset = visibleIndex - (visibleCount - 1) / 2;
   const posX   = offset * HAND_SPREAD;
-  const posY   = HAND_Y + card._drawIdx * HAND_Z_STEP;
-  const posZ   = HAND_Z;
+  const posY   = HAND_Y + visibleIndex * HAND_Z_STEP;
+  const posZ   = HAND_Z + visibleIndex * 0.005;
   const rotZ   = -offset * HAND_FAN_ROT;
 
+  /* Rest position ref — aggiornato quando cambiano i target */
+  const restPos = useRef({ x: posX, y: posY, z: posZ, rz: rotZ });
+  restPos.current = { x: posX, y: posY, z: posZ, rz: rotZ };
+
+  /* GSAP lerp verso la nuova posizione quando cambia visibleIndex/visibleCount */
+  useEffect(() => {
+    const g = groupRef.current;
+    if (!g || dragging.current) return;
+    if (!initialSet.current) {
+      g.position.set(posX, posY, posZ);
+      g.rotation.set(-Math.PI / 2, 0, rotZ);
+      g.scale.set(HAND_CARD_SC, HAND_CARD_SC, HAND_CARD_SC);
+      initialSet.current = true;
+    } else {
+      gsap.to(g.position, { x: posX, y: posY, z: posZ, duration: 0.35, ease: 'power2.out', overwrite: true });
+      gsap.to(g.rotation, { z: rotZ, duration: 0.35, ease: 'power2.out', overwrite: true });
+    }
+  }, [posX, posY, posZ, rotZ]);
+
+  /* ── Hover In: solleva + ingrandisci (solo se nessuno sta trascinando) ── */
+  const handlePointerOver = useCallback((e) => {
+    e.stopPropagation();
+    if (_anyDragging || dragging.current || isHovered.current) return;
+    const g = groupRef.current;
+    if (!g || g.userData?.isPlaying) return;
+    isHovered.current = true;
+    document.body.style.cursor = 'pointer';
+    g.renderOrder = 100;
+    const hoverSc = HAND_CARD_SC * HAND_HOVER_SC_MULT;
+    gsap.to(g.position, {
+      y: restPos.current.y + HAND_HOVER_LIFT_Y,
+      z: restPos.current.z + HAND_HOVER_LIFT_Z,
+      duration: HAND_HOVER_IN_DUR, ease: 'power2.out', overwrite: true,
+    });
+    gsap.to(g.scale, {
+      x: hoverSc, y: hoverSc, z: hoverSc,
+      duration: HAND_HOVER_IN_DUR, ease: 'power2.out', overwrite: true,
+    });
+  }, []);
+
+  /* ── Hover Out: torna a riposo ── */
+  const handlePointerOut = useCallback(() => {
+    if (!isHovered.current || dragging.current) return;
+    isHovered.current = false;
+    document.body.style.cursor = 'default';
+    const g = groupRef.current;
+    if (!g) return;
+    g.renderOrder = 10 + visibleIndex;
+    gsap.to(g.position, {
+      y: restPos.current.y, z: restPos.current.z,
+      duration: HAND_HOVER_OUT_DUR, ease: 'power2.inOut', overwrite: true,
+    });
+    gsap.to(g.scale, {
+      x: HAND_CARD_SC, y: HAND_CARD_SC, z: HAND_CARD_SC,
+      duration: HAND_HOVER_OUT_DUR, ease: 'power2.inOut', overwrite: true,
+    });
+  }, [visibleIndex]);
+
+  /* ── Raycast dal puntatore al piano Y=0 ── */
+  const worldFromEvent = useCallback((e) => {
+    const rect = gl.domElement.getBoundingClientRect();
+    const nativeEvt = e.nativeEvent ?? e;
+    _dragPointer.set(
+      ((nativeEvt.clientX - rect.left) / rect.width)  * 2 - 1,
+      -((nativeEvt.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(_dragPointer, camera);
+    ray.ray.intersectPlane(_dragPlane, _dragInter);
+    return { x: _dragInter.x, z: _dragInter.z };
+  }, [camera, gl]);
+
+  /* ── Pointer Down: inizia drag ── */
+  const handlePointerDown = useCallback((e) => {
+    e.stopPropagation();
+    const g = groupRef.current;
+    if (!g) return;
+    const hit = worldFromEvent(e);
+    dragStart.current = { worldX: hit.x, worldZ: hit.z, gx: g.position.x, gz: g.position.z };
+    dragging.current = true;
+    _anyDragging = true;
+    didDrag.current = false;
+    inHotzone.current = false;
+    /* Annulla hover attivo */
+    if (isHovered.current) {
+      isHovered.current = false;
+    }
+    gsap.killTweensOf(g.position);
+    gsap.killTweensOf(g.rotation);
+    gsap.killTweensOf(g.scale);
+    /* Ripristina scala base (cancella eventuale hover scale) */
+    g.scale.set(HAND_CARD_SC, HAND_CARD_SC, HAND_CARD_SC);
+    g.renderOrder = 100;
+    /* Cattura il pointer a livello DOM per ricevere eventi fuori dal canvas/mesh */
+    (e.target ?? gl.domElement).setPointerCapture?.(e.pointerId);
+  }, [worldFromEvent, gl]);
+
+  /* ── Pointer Move: trascina ── */
+  const handlePointerMove = useCallback((e) => {
+    if (!dragging.current || !dragStart.current) return;
+    e.stopPropagation();
+    const g = groupRef.current;
+    if (!g) return;
+    const hit = worldFromEvent(e);
+    const dx = hit.x - dragStart.current.worldX;
+    const dz = hit.z - dragStart.current.worldZ;
+    /* Soglia minima per considerare "drag" (evita click accidentali) */
+    if (!didDrag.current && Math.abs(dx) + Math.abs(dz) > 0.15) {
+      didDrag.current = true;
+    }
+    const newX = dragStart.current.gx + dx;
+    const newZ = dragStart.current.gz + dz;
+    g.position.x = newX;
+    g.position.z = newZ;
+
+    /* Controlla Hotzone */
+    const inside = newX >= HOTZONE_X_MIN && newX <= HOTZONE_X_MAX &&
+                   newZ >= HOTZONE_Z_MIN && newZ <= HOTZONE_Z_MAX;
+    if (inside && !inHotzone.current) {
+      inHotzone.current = true;
+      gsap.to(g.rotation, { z: HZ_ROT[2], duration: 0.2, ease: 'power2.out', overwrite: true });
+      const hzSc = HAND_CARD_SC * HZ_SCALE_FACTOR;
+      gsap.to(g.scale, { x: hzSc, y: hzSc, z: hzSc, duration: 0.2, ease: 'power2.out', overwrite: true });
+    } else if (!inside && inHotzone.current) {
+      inHotzone.current = false;
+      gsap.to(g.rotation, { z: restPos.current.rz, duration: 0.2, ease: 'power2.out', overwrite: true });
+      gsap.to(g.scale, { x: HAND_CARD_SC, y: HAND_CARD_SC, z: HAND_CARD_SC, duration: 0.2, ease: 'power2.out', overwrite: true });
+    }
+  }, [worldFromEvent]);
+
+  /* ── Pointer Up: rilascia ── */
+  const handlePointerUp = useCallback((e) => {
+    if (!dragging.current) return;
+    e.stopPropagation();
+    dragging.current = false;
+    _anyDragging = false;
+    dragStart.current = null;
+    const g = groupRef.current;
+    if (!g) return;
+    g.renderOrder = 10 + visibleIndex;
+    (e.target ?? gl.domElement).releasePointerCapture?.(e.pointerId);
+
+    if (inHotzone.current && didDrag.current) {
+      /* ── Scarta: la carta è nella hotzone → lancia burn ── */
+      inHotzone.current = false;
+      if (onDiscard) onDiscard(card._drawIdx, card._slotIdx, g);
+    } else {
+      /* ── Snap back: torna alla posizione di riposo ── */
+      inHotzone.current = false;
+      gsap.to(g.position, {
+        x: restPos.current.x, y: restPos.current.y, z: restPos.current.z,
+        duration: 0.4, ease: 'elastic.out(1, 0.5)', overwrite: true,
+      });
+      gsap.to(g.rotation, {
+        z: restPos.current.rz,
+        duration: 0.3, ease: 'power2.out', overwrite: true,
+      });
+      gsap.to(g.scale, {
+        x: HAND_CARD_SC, y: HAND_CARD_SC, z: HAND_CARD_SC,
+        duration: 0.3, ease: 'power2.out', overwrite: true,
+      });
+    }
+  }, [visibleIndex, gl, onDiscard, card._drawIdx, card._slotIdx]);
+
+  /* Click singolo = gioca carta (solo se non c'è stato un drag significativo) */
   const handleClick = useCallback(() => {
+    if (didDrag.current) return;
     if (!groupRef.current || !onPlay) return;
     if (groupRef.current.userData?.isPlaying) return;
     onPlay(card._drawIdx, groupRef.current);
   }, [card._drawIdx, onPlay]);
 
-  /* Doppio click destro → scarta */
-  const handleContextMenu = useCallback((e) => {
-    e.stopPropagation();
-    const now = performance.now();
-    if (now - lastCtxTime.current < 500) {
-      /* Secondo click destro entro 500ms → attiva scarto */
-      if (onDiscard && groupRef.current) {
-        onDiscard(card._drawIdx, card._slotIdx, groupRef.current);
-      }
-      lastCtxTime.current = 0;
-    } else {
-      lastCtxTime.current = now;
-    }
-  }, [card._drawIdx, card._slotIdx, onDiscard]);
-
   return (
-    <Card3D
+    <group
       ref={groupRef}
-      position={[posX, posY, posZ]}
-      rotation={[-Math.PI / 2, 0, rotZ]}
-      scale={HAND_CARD_SC}
-      type={card?.type || 'arma'}
-      name={card?.name || '?'}
-      bonus={card?.bonus}
-      desc={card?.desc}
-      cu={card?.cu}
-      hoverable
-      renderOrder={10 + card._drawIdx}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       onClick={handleClick}
-      onContextMenu={handleContextMenu}
-    />
+      renderOrder={10 + visibleIndex}
+    >
+      <Card3D
+        position={[0, 0, 0]}
+        rotation={[0, 0, 0]}
+        scale={1}
+        type={card?.type || 'arma'}
+        name={card?.name || '?'}
+        bonus={card?.bonus}
+        desc={card?.desc}
+        cu={card?.cu}
+        renderOrder={10 + visibleIndex}
+      />
+    </group>
   );
 }
 
-function OppHandCard({ index, totalCount, card }) {
+function OppHandCard({ visibleIndex, visibleCount, card }) {
   const groupRef  = useRef();
   const [revealed, setRevealed] = useState(false);
   const hoverTl   = useRef(null);
+  const initialSet = useRef(false);
 
-  const offset = index - (totalCount - 1) / 2;
+  const offset = visibleIndex - (visibleCount - 1) / 2;
   const restX  = offset * OPP_SPREAD;
-  const restY  = OPP_HAND_Y + index * OPP_Z_STEP;
-  const restZ  = OPP_HAND_Z;
+  /* Arco parabolico Y: le carte ai lati scendono leggermente */
+  const restY  = OPP_HAND_BASE_Y + visibleIndex * OPP_Z_STEP - OPP_Y_CURVE * offset * offset;
+  const restZ  = OPP_HAND_Z - visibleIndex * 0.005;
   const rotZ   = offset * OPP_FAN_ROT;
 
-  /* Posizionamento iniziale — via ref per evitare reset da re-render React */
+  /* Posizionamento dinamico con GSAP lerp quando indice/conteggio cambia */
   useEffect(() => {
     const g = groupRef.current;
     if (!g) return;
-    g.position.set(restX, restY, restZ);
-    g.rotation.set(-Math.PI / 2, 0, rotZ);
-    g.scale.set(OPP_HAND_SC, OPP_HAND_SC, OPP_HAND_SC);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!initialSet.current) {
+      g.position.set(restX, restY, restZ);
+      g.rotation.set(-Math.PI / 2, 0, rotZ);
+      g.scale.set(OPP_HAND_SC, OPP_HAND_SC, OPP_HAND_SC);
+      initialSet.current = true;
+    } else {
+      gsap.to(g.position, { x: restX, y: restY, duration: 0.35, ease: 'power2.out', overwrite: true });
+      gsap.to(g.rotation, { z: rotZ, duration: 0.35, ease: 'power2.out', overwrite: true });
+    }
+  }, [restX, restY, restZ, rotZ]);
 
-  /* ── Hover In: rotazione Y di π (ribaltamento reale) + sollevamento ── */
+  /* ── Hover In: Scale-X flip (squash→reveal→unsquash) + avvicinamento camera ── */
   const handleOver = useCallback((e) => {
     e.stopPropagation();
     const g = groupRef.current;
@@ -610,38 +847,51 @@ function OppHandCard({ index, totalCount, card }) {
     hoverTl.current?.kill();
     document.body.style.cursor = 'pointer';
 
+    const scFull = OPP_HAND_SC * 1.15;
+    const proxy = { sx: OPP_HAND_SC };
     const tl = gsap.timeline();
-    /* Rotazione Y da 0 a π → rivela la faccia */
-    tl.to(g.rotation, { y: Math.PI, duration: 0.35, ease: 'power2.inOut' }, 0);
-    tl.add(() => setRevealed(true), 0.17);   // rivela a metà flip
-    /* Sollevamento + avvicinamento verso il giocatore + scala */
-    tl.to(g.position, { y: restY + 0.3, z: restZ + 0.5, duration: 0.35, ease: 'power2.out' }, 0);
+    /* Squash X a 0 → rivela la faccia → unsquash */
+    tl.to(proxy, {
+      sx: 0.02, duration: 0.15, ease: 'power1.in',
+      onUpdate: () => g.scale.setX(proxy.sx),
+    }, 0);
+    tl.add(() => setRevealed(true), 0.15);
+    tl.to(proxy, {
+      sx: scFull, duration: 0.2, ease: 'power1.out',
+      onUpdate: () => g.scale.setX(proxy.sx),
+    });
+    /* Ingrandimento Y/Z + avvicinamento camera */
     tl.to(g.scale, {
-      x: OPP_HAND_SC * 1.15, y: OPP_HAND_SC * 1.15, z: OPP_HAND_SC * 1.15,
+      y: scFull, z: scFull,
+      duration: 0.35, ease: 'power2.out',
+    }, 0);
+    tl.to(g.position, {
+      y: restY + OPP_HAND_HOVER_Y_OFFSET,
+      z: restZ + 0.5,
       duration: 0.35, ease: 'power2.out',
     }, 0);
 
     hoverTl.current = tl;
   }, [card, restY, restZ]);
 
-  /* ── Hover Out: rotazione Y → 0 + ripristino completo ── */
+  /* ── Hover Out: kill qualunque tween, forza posizione di riposo ── */
   const handleOut = useCallback(() => {
     const g = groupRef.current;
     if (!g) return;
     hoverTl.current?.kill();
+    hoverTl.current = null;
     document.body.style.cursor = 'default';
+    setRevealed(false);
 
-    const tl = gsap.timeline();
-    tl.to(g.rotation, { y: 0, duration: 0.30, ease: 'power2.inOut' }, 0);
-    tl.add(() => setRevealed(false), 0.15);
-    tl.to(g.position, { y: restY, z: restZ, duration: 0.30, ease: 'power2.inOut' }, 0);
-    tl.to(g.scale, {
-      x: OPP_HAND_SC, y: OPP_HAND_SC, z: OPP_HAND_SC,
-      duration: 0.30, ease: 'power2.inOut',
-    }, 0);
+    /* Ripristino immediato (nessun tween → nessun artefatto) */
+    gsap.killTweensOf(g.position);
+    gsap.killTweensOf(g.rotation);
+    gsap.killTweensOf(g.scale);
 
-    hoverTl.current = tl;
-  }, [restY, restZ]);
+    g.position.set(restX, restY, restZ);
+    g.rotation.set(-Math.PI / 2, 0, rotZ);
+    g.scale.set(OPP_HAND_SC, OPP_HAND_SC, OPP_HAND_SC);
+  }, [restX, restY, restZ, rotZ]);
 
   useEffect(() => () => hoverTl.current?.kill(), []);
 
@@ -650,7 +900,7 @@ function OppHandCard({ index, totalCount, card }) {
   return (
     <group
       ref={groupRef}
-      renderOrder={10 + index}
+      renderOrder={10 + visibleIndex}
       onPointerOver={handleOver}
       onPointerOut={handleOut}
     >
@@ -661,7 +911,7 @@ function OppHandCard({ index, totalCount, card }) {
         desc={showFace ? card.desc : undefined}
         cu={showFace ? card.cu : undefined}
         faceDown={!showFace}
-        renderOrder={10 + index}
+        renderOrder={10 + visibleIndex}
       />
     </group>
   );
@@ -681,8 +931,8 @@ function DrawingCard({ card, index, totalCount, deckPos, deckRot, deckTopSkew = 
   /* Slot a ventaglio fisso (stessa formula di HandCard / OppHandCard) */
   const offset   = index - (totalCount - 1) / 2;
   const targetX  = isOpponent ? offset * OPP_SPREAD  : offset * HAND_SPREAD;
-  const targetY  = isOpponent ? OPP_HAND_Y + index * OPP_Z_STEP : HAND_Y + index * HAND_Z_STEP;
-  const targetZ  = isOpponent ? OPP_HAND_Z : HAND_Z;
+  const targetY  = isOpponent ? OPP_HAND_BASE_Y + index * OPP_Z_STEP : HAND_Y + index * HAND_Z_STEP;
+  const targetZ  = isOpponent ? OPP_HAND_Z - index * 0.005 : HAND_Z + index * 0.005;
   const targetRZ = isOpponent ? offset * OPP_FAN_ROT : -offset * HAND_FAN_ROT;
   const targetSc = isOpponent ? OPP_HAND_SC : HAND_CARD_SC;
 
@@ -1383,6 +1633,234 @@ function PlayingCard({ card, startPos, startScale = HAND_CARD_SC, actionConfigKe
 
 
 /* ═══════════════════════════════════════════
+   ICONE BUFF — piccole icone Html sopra al cavaliere (top-left)
+   ═══════════════════════════════════════════ */
+function BuffIcons({ position, isAtkBuffed, isDefBuffed }) {
+  if (!isAtkBuffed && !isDefBuffed) return null;
+  return (
+    <group position={position}>
+      <Html
+        position={[0.3, 5.9, -0.45]}
+        center
+        distanceFactor={6}
+        style={{ pointerEvents: 'none', userSelect: 'none', display: 'flex', gap: 4 }}
+      >
+        {isAtkBuffed && (
+          <span style={{
+            fontSize: 16, lineHeight: 1,
+            filter: 'drop-shadow(0 0 4px #ff3300)',
+            animation: 'pulse-icon 1.5s ease-in-out infinite',
+          }}>⚔️</span>
+        )}
+        {isDefBuffed && (
+          <span style={{
+            fontSize: 16, lineHeight: 1,
+            filter: 'drop-shadow(0 0 4px #00aaff)',
+            animation: 'pulse-icon 1.5s ease-in-out infinite 0.3s',
+          }}>🛡️</span>
+        )}
+      </Html>
+    </group>
+  );
+}
+
+
+/* ═══════════════════════════════════════════
+   RIVELAZIONE TERRENO — volo dal mazzo → centro schermo (rivelazione) → alto-sinistra.
+   Questa animazione blocca visualmente il ciclo di gioco per 1s di stallo al centro.
+   ═══════════════════════════════════════════ */
+function TerrainRevealCard({ terrainData, deckConfigKey, onComplete }) {
+  const groupRef  = useRef();
+  const shadowRef = useRef();
+  const card3dRef = useRef();
+  const [revealed, setRevealed] = useState(false);
+
+  const deckCfg   = CONFIG_3D[deckConfigKey] || CONFIG_3D.playerMainDeck;
+  const finalCfg  = CONFIG_3D.activeTerrain;
+  const deckPos   = perspPos(deckCfg);
+  const deckRot   = perspRot(deckCfg);
+  const finalPos  = perspPos(finalCfg);
+  const finalRot  = perspRot(finalCfg);
+  const finalSc   = Array.isArray(finalCfg.scale) ? finalCfg.scale[0] : finalCfg.scale;
+
+  useEffect(() => {
+    const g = groupRef.current;
+    const s = shadowRef.current;
+    if (!g) return;
+
+    /* Start: at deck position */
+    g.position.set(deckPos[0], deckPos[1] + STACK_TOP, deckPos[2]);
+    g.rotation.set(deckRot[0], deckRot[1], deckRot[2]);
+    const deckSc = Array.isArray(deckCfg.scale) ? deckCfg.scale[0] : deckCfg.scale;
+    g.scale.set(deckSc, deckSc, deckSc);
+    g.visible = true;
+    if (s) syncShadow(s, g);
+
+    /* Centro schermo (sopra il tavolo) */
+    const centerX = 0;
+    const centerY = TERRAIN_REVEAL_ARC_PEAK;
+    const centerZ = 0;
+    const stallSc = TERRAIN_REVEAL_STALL_SC;
+
+    const scaleProxy = { x: deckSc };
+    const shadowUp   = () => { if (s) syncShadow(s, g); };
+
+    const tl = gsap.timeline();
+
+    /* ── Fase 1: Volo dal mazzo al centro schermo ── */
+    tl.addLabel('rise', 0);
+    tl.to(g.position, {
+      x: centerX, y: centerY, z: centerZ,
+      duration: TERRAIN_REVEAL_RISE_DUR, ease: 'power2.out',
+      onUpdate: shadowUp,
+    }, 'rise');
+    tl.to(g.rotation, {
+      x: -Math.PI / 2, y: 0, z: 0,
+      duration: TERRAIN_REVEAL_RISE_DUR, ease: 'sine.inOut',
+    }, 'rise');
+    tl.to(g.scale, {
+      x: stallSc, y: stallSc, z: stallSc,
+      duration: TERRAIN_REVEAL_RISE_DUR, ease: 'power2.out',
+    }, 'rise');
+
+    /* Flip: squash → reveal → unsquash */
+    tl.to(scaleProxy, {
+      x: 0.02, duration: 0.10, ease: 'power1.in',
+      onUpdate: () => g.scale.setX(scaleProxy.x),
+    });
+    tl.add(() => setRevealed(true));
+    tl.to(scaleProxy, {
+      x: stallSc, duration: 0.10, ease: 'power1.out',
+      onUpdate: () => g.scale.setX(scaleProxy.x),
+    });
+
+    /* ── Fase 2: Stallo al centro (pausa drammatica per leggere l'effetto) ── */
+    tl.to({}, { duration: TERRAIN_REVEAL_STALL });
+
+    /* ── Fase 3: Volo dal centro alla posizione finale (alto-sinistra) ── */
+    tl.addLabel('fly');
+    tl.to(g.position, {
+      x: finalPos[0], y: finalPos[1], z: finalPos[2],
+      duration: TERRAIN_REVEAL_FLY_DUR, ease: 'power2.inOut',
+      onUpdate: shadowUp,
+    }, 'fly');
+    tl.to(g.rotation, {
+      x: finalRot[0], y: finalRot[1], z: finalRot[2],
+      duration: TERRAIN_REVEAL_FLY_DUR, ease: 'sine.inOut',
+    }, 'fly');
+    tl.to(g.scale, {
+      x: finalSc, y: finalSc, z: finalSc,
+      duration: TERRAIN_REVEAL_FLY_DUR, ease: 'power2.inOut',
+    }, 'fly');
+
+    /* Shadow fade out */
+    if (s) {
+      tl.to(s.material, { opacity: 0, duration: 0.2, ease: 'power1.out' });
+    }
+
+    tl.add(() => onComplete?.());
+
+    return () => tl.kill();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const card = terrainData?.card;
+  if (!card) return null;
+
+  return (
+    <>
+      <group ref={groupRef} visible={false}>
+        <Card3D
+          ref={card3dRef}
+          faceDown={!revealed}
+          type={revealed ? (card.type || 'terreno') : 'back'}
+          name={revealed ? (card.name || '?') : ''}
+          desc={revealed ? card.desc : undefined}
+          cu={revealed ? card.cu : undefined}
+          renderOrder={60}
+        />
+      </group>
+      <FlightShadow shadowRef={shadowRef} />
+    </>
+  );
+}
+
+
+/* ═══════════════════════════════════════════
+   TERRENO ATTIVO — carta fissa in alto a sinistra,
+   frontale alla camera, con lento respiro.
+   ═══════════════════════════════════════════ */
+/* ── Terrain Hover Lift: aumenta o diminuisci per regolare l'intensità del sollevamento ── */
+const TERRAIN_HOVER_LIFT = 0.25;
+
+function TerrainDisplayCard({ terrainData }) {
+  const groupRef     = useRef();
+  const breathRef    = useRef(null);
+  const isHoveredRef = useRef(false);
+  const cfg  = CONFIG_3D.activeTerrain;
+  const baseY = cfg.position[1];
+
+  useEffect(() => {
+    const g = groupRef.current;
+    if (!g) return;
+    const tl = gsap.to(g.position, {
+      y: baseY + 0.08,
+      duration: 3,
+      ease: 'sine.inOut',
+      yoyo: true,
+      repeat: -1,
+    });
+    breathRef.current = tl;
+    return () => tl.kill();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleOver = useCallback((e) => {
+    e.stopPropagation();
+    const g = groupRef.current;
+    if (!g || isHoveredRef.current) return;
+    isHoveredRef.current = true;
+    document.body.style.cursor = 'pointer';
+    breathRef.current?.pause();
+    gsap.to(g.position, { y: baseY + TERRAIN_HOVER_LIFT, duration: 0.2, ease: 'power2.out', overwrite: true });
+  }, [baseY]);
+
+  const handleOut = useCallback(() => {
+    const g = groupRef.current;
+    if (!g || !isHoveredRef.current) return;
+    isHoveredRef.current = false;
+    document.body.style.cursor = 'default';
+    gsap.to(g.position, {
+      y: baseY, duration: 0.25, ease: 'power2.inOut', overwrite: true,
+      onComplete: () => breathRef.current?.resume(),
+    });
+  }, [baseY]);
+
+  const card = terrainData?.card;
+  if (!card) return null;
+
+  return (
+    <group
+      ref={groupRef}
+      position={perspPos(cfg)}
+      rotation={perspRot(cfg)}
+      scale={cfg.scale}
+      onPointerOver={handleOver}
+      onPointerOut={handleOut}
+    >
+      <Card3D
+        type={card.type || 'terreno'}
+        name={card.name || '?'}
+        desc={card.desc}
+        cu={card.cu}
+        renderOrder={5}
+      />
+    </group>
+  );
+}
+
+
+/* ═══════════════════════════════════════════
    SCENA PRINCIPALE
    ═══════════════════════════════════════════ */
 function Scene() {
@@ -1417,6 +1895,12 @@ function Scene() {
   const [playedCards, setPlayedCards]  = useState(new Set());
   const [oppDrawStarted, setOppDrawStarted] = useState(false);
 
+  /* ── Lock interazione: impedisce azioni mentre un'animazione è in corso ── */
+  const isAnimatingRef = useRef(false);
+
+  /* ── Conteggio carte decorative pesca avversario ── */
+  const oppDrawCountRef = useRef(MAX_HAND_SIZE);
+
   /* ── Carta in gioco (animazione separata) ── */
   const [playingCard, setPlayingCard] = useState(null);
   const [aiPlayingCard, setAiPlayingCard] = useState(null);
@@ -1425,12 +1909,18 @@ function Scene() {
   const p2KnightRef = useRef();
   const pendingEquipRef = useRef(null);
 
+  /* ── Rivelazione Terreno: animazione dal mazzo al centro → posizione finale ── */
+  const [terrainReveal, setTerrainReveal] = useState(null);  // { data, deckKey }
+  const prevTerrainRef = useRef(null);
+
   /* ── Attacco: arco magico tra cavalieri ── */
   const [attackAnim, setAttackAnim] = useState(null);
   const attackFlashRef = useRef();
 
   /* ── Scarto carta: animazione DiscardingCard ── */
   const [discardingCard, setDiscardingCard] = useState(null);
+  /* slot index dell'ultima carta scartata — serve per sincronizzare il free-redraw */
+  const discardSlotRef = useRef(null);
 
   /* ── Morte cavaliere: dissoluzione + redraw ── */
   const [p1KnightDying, setP1KnightDying] = useState(false);
@@ -1462,7 +1952,8 @@ function Scene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitializing]);
 
-  /* Quando entrambi i cavalieri sono atterrati → segna come completato */
+  /* Quando entrambi i cavalieri sono atterrati → segna come completato + auto-deal round 1 */
+  const initialDealDone = useRef(false);
   useEffect(() => {
     if (p1KnightReady && p2KnightReady && knightsPhase === 'drawing') {
       setKnightsPhase('done');
@@ -1471,25 +1962,115 @@ function Scene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p1KnightReady, p2KnightReady, knightsPhase]);
 
+  /* ── Auto-deal Round 1: appena finishInit() → distribuisci 3 carte ciascuno ── */
+  useEffect(() => {
+    if (knightsPhase !== 'done' || isInitializing || initialDealDone.current) return;
+    initialDealDone.current = true;
+    const timer = setTimeout(() => {
+      /* Pesca armi per il giocatore */
+      const s = useGameStore.getState();
+      if (s.p1.weaponsLeft > 0 && !s.p1.hasDrawnWeapon) {
+        const drawn = s.drawWeapon(1);
+        if (drawn.length > 0) {
+          const newCards = drawn.map(d => ({
+            ...d.card, _drawIdx: d.slotIdx, _slotIdx: d.slotIdx, _landed: false,
+          }));
+          setPlayerHand(prev => {
+            const kept = prev.filter(c => newCards.every(n => n._drawIdx !== c._drawIdx));
+            return [...kept, ...newCards];
+          });
+          setDrawData({
+            cards: drawn.map((d) => ({ ...d.card, _drawIdx: d.slotIdx, _slotIdx: d.slotIdx, _totalCount: MAX_HAND_SIZE })),
+          });
+        }
+      }
+    }, 500);
+    return () => { clearTimeout(timer); initialDealDone.current = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [knightsPhase, isInitializing]);
+
   /* ── Cache dati cavaliere per dissoluzione (serve dopo che lo store annulla activeCard) ── */
   useEffect(() => { if (p1.activeCard) p1LastKnight.current = { ...p1.activeCard }; }, [p1.activeCard]);
   useEffect(() => { if (p2.activeCard) p2LastKnight.current = { ...p2.activeCard }; }, [p2.activeCard]);
 
-  /* ── Reset stato pesca quando torna il turno del giocatore ── */
-  const prevTurnRef = useRef(null);
+  /* ── Watcher Terreno: quando activeTerrain cambia → lancia animazione di rivelazione ── */
+  useEffect(() => {
+    const prevId = prevTerrainRef.current?.id;
+    const curId  = activeTerrain?.id;
+    if (curId && curId !== prevId) {
+      /* Determina il mazzo di origine in base al proprietario del terreno */
+      const owner = activeTerrain.owner;
+      const deckKey = owner === 2 ? 'opponentMainDeck' : 'playerMainDeck';
+      setTerrainReveal({ data: activeTerrain, deckKey });
+    }
+    prevTerrainRef.current = activeTerrain;
+  }, [activeTerrain]);
+
+  /* ── Reset COMPLETO stato pesca quando torna il turno del giocatore ── */
+  const prevTurnRef    = useRef(null);
+  const roundDealTimer = useRef(null);
   useEffect(() => {
     if (prevTurnRef.current !== null && turn === 1 && !isInitializing) {
+      /* 1. Sblocca qualsiasi animazione residua */
+      isAnimatingRef.current = false;
+
+      /* 2. Smonta eventuali carte in giocata/scarto ancora animate */
+      setPlayingCard(null);
+      setDiscardingCard(null);
+
+      /* 3. Svuota gli slot arma del G1 nello store → drawWeapon ripesca 3 carte */
+      useGameStore.setState(s => ({
+        p1: { ...s.p1, weaponSlots: [null, null, null], hasDrawnWeapon: false },
+      }));
+
+      /* 4. Pulisci lo stato visuale della pesca del G1 */
       setDrawData(null);
       setLandedP1(new Set());
       setLandedP2(new Set());
       setPlayerHand([]);
       setPlayedCards(new Set());
-      setOppDrawStarted(false);
-      setOppHand([]);
-      setOppPlayedCards(new Set());
       setAiPlayingCard(null);
+
+      /* 4b. Mano avversario: MANTIENI le carte rimaste (non giocate).
+             Ricostruisci oppHand dai weaponSlots sopravvissuti di p2.          */
+      {
+        const st = useGameStore.getState();
+        const surviving = st.p2.weaponSlots
+          .map((slot, i) => slot ? { _drawIdx: i, _slotIdx: i, _landed: true } : null)
+          .filter(Boolean);
+        setOppHand(surviving);
+        setOppPlayedCards(new Set());
+        setOppDrawStarted(false);
+      }
+
+      /* 5. Auto-deal round 2+: pesca automatica dopo 500ms (come round 1) */
+      if (roundDealTimer.current) clearTimeout(roundDealTimer.current);
+      roundDealTimer.current = setTimeout(() => {
+        const st = useGameStore.getState();
+        if (st.turn !== 1 || st.gameOver) return;
+        if (st.p1.weaponsLeft > 0) {
+          const drawn = st.drawWeapon(1);
+          if (drawn.length > 0) {
+            const newCards = drawn.map(d => ({
+              ...d.card, _drawIdx: d.slotIdx, _slotIdx: d.slotIdx, _landed: false,
+            }));
+            setPlayerHand(prev => {
+              const kept = prev.filter(c => newCards.every(n => n._drawIdx !== c._drawIdx));
+              return [...kept, ...newCards];
+            });
+            setDrawData({
+              cards: drawn.map(d => ({
+                ...d.card, _drawIdx: d.slotIdx, _slotIdx: d.slotIdx, _totalCount: MAX_HAND_SIZE,
+              })),
+            });
+          }
+        }
+      }, 500);
     }
     prevTurnRef.current = turn;
+    return () => {
+      if (roundDealTimer.current) clearTimeout(roundDealTimer.current);
+    };
   }, [turn, isInitializing]);
 
   /* ═══════ Gestione morte cavaliere + redraw ═══════ */
@@ -1550,22 +2131,44 @@ function Scene() {
       },
     });
 
-    /* 1. Sollevamento */
+    /* Centro esatto dello schermo (world space, sopra il tavolo) */
+    const centerX = 0;
+    const centerY = STALL_Y * 0.7;
+    const centerZ = (origPos[2] + targetPos[2]) / 2;
+
+    /* Rotazione di riposo completa (dalla CONFIG_3D dello slot) */
+    const origRot = perspRot(CONFIG_3D[attackerKey]);
+    const origRotX = origRot[0];
+    const origRotY = origRot[1];
+    const origRotZ = origRot[2];
+
+    /* Tilt: 15 gradi (π/12). Player → −15° (fendente alto-destro), AI → +15° (alto-sinistro) */
+    const tiltAngle = playerNum === 1 ? -Math.PI / 12 : Math.PI / 12;
+    /* Wind-up: -12° nella direzione opposta al colpo (carica il fendente) */
+    const windUpAngle = playerNum === 1 ? (12 * Math.PI / 180) : -(12 * Math.PI / 180);
+
+    /* 1a. Sollevamento + volo al centro + wind-up rotazione (carica) */
     tl.to(ag.position, {
-      y: origPos[1] + ATTACK_LIFT_Y,
-      duration: ATTACK_LIFT_DUR, ease: 'power2.out',
+      x: centerX, y: centerY, z: centerZ,
+      duration: ATTACK_LIFT_DUR + 0.12, ease: 'power2.out',
+    }, 0);
+    tl.to(ag.rotation, {
+      x: origRotX, y: origRotY, z: origRotZ + windUpAngle,
+      duration: ATTACK_LIFT_DUR + 0.12, ease: 'power2.out',
+    }, 0);
+
+    /* 1b. Pausa breve al carico (held pose) */
+    tl.to({}, { duration: 0.06 });
+
+    /* 1c. Scatto rapido del jab — snap dalla carica al colpo */
+    tl.to(ag.rotation, {
+      x: origRotX, y: origRotY, z: origRotZ + tiltAngle,
+      duration: 0.08, ease: 'power3.in',
     });
 
-    /* 2. Affondo verso il bersaglio */
-    tl.to(ag.position, {
-      x: targetPos[0], z: targetPos[2],
-      duration: ATTACK_LUNGE_DUR, ease: 'power3.in',
-    });
-
-    /* 3. Flash emissivo rosso sul bersaglio */
+    /* 2. Flash emissivo rosso sul bersaglio */
     tl.add(() => {
       if (!tg) return;
-      /* Trova tutti i materiali figli e lampeggia l'emissive */
       const materials = [];
       tg.traverse((child) => {
         if (child.material && child.material.emissive) {
@@ -1619,7 +2222,7 @@ function Scene() {
     /* Tempo per i flash */
     tl.to({}, { duration: ATTACK_FLASH_CNT * ATTACK_FLASH_DUR });
 
-    /* Flash disco a terra */
+    /* Flash disco a terra sul bersaglio */
     if (attackFlashRef.current) {
       const knPos = perspPos(CONFIG_3D[targetKey]);
       attackFlashRef.current.position.set(knPos[0], knPos[1] + 0.01, knPos[2]);
@@ -1631,11 +2234,15 @@ function Scene() {
       });
     }
 
-    /* 4. Ritorno alla posizione iniziale */
+    /* 3. Ritorno alla posizione e rotazione di riposo (fluido, tutti gli assi bloccati) */
+    tl.to(ag.rotation, {
+      x: origRotX, y: origRotY, z: origRotZ,
+      duration: 0.15, ease: 'power2.out',
+    });
     tl.to(ag.position, {
       x: origPos[0], y: origPos[1], z: origPos[2],
       duration: ATTACK_RETURN_DUR, ease: 'power2.out',
-    });
+    }, '<');
 
     /* Segna l'animazione come attiva (per il guard dello smontaggio) */
     setAttackAnim({ targetPlayer, knightDied });
@@ -1646,50 +2253,93 @@ function Scene() {
 
   /* ── Click Mazzo Principale G1 → pesca armi dallo store ── */
   const handleDraw = useCallback(() => {
-    if (drawData || turn !== 1 || gameOver || isInitializing) return;
-    if (p1.hasDrawnWeapon || p1.weaponsLeft <= 0) return;
+    if (drawData || isAnimatingRef.current || turn !== 1 || gameOver || isInitializing) return;
+    if (p1.weaponsLeft <= 0) return;
+    const cardsInHand = playerHand.filter(c => !playedCards.has(c._drawIdx)).length;
+    if (cardsInHand >= MAX_HAND_SIZE) return;
     const drawn = drawWeapon(1);
     if (drawn.length === 0) return;
+    /* Pulisci i playedCards per gli slot che verranno riempiti */
+    setPlayedCards(prev => {
+      const next = new Set(prev);
+      drawn.forEach(d => next.delete(d.slotIdx));
+      return next;
+    });
+    /* Inserisci TUTTE le carte in playerHand subito (_landed: false) → la mano
+       conosce fin da ora la dimensione finale e calcola posizioni corrette */
+    const newCards = drawn.map(d => ({
+      ...d.card, _drawIdx: d.slotIdx, _slotIdx: d.slotIdx, _landed: false,
+    }));
+    setPlayerHand(prev => {
+      const kept = prev.filter(c => newCards.every(n => n._drawIdx !== c._drawIdx));
+      return [...kept, ...newCards];
+    });
+    /* _drawIdx = slotIdx reale (0/1/2) per posizionare in fan corretto */
     setDrawData({
-      cards: drawn.map((d, i) => ({ ...d.card, _drawIdx: i, _slotIdx: d.slotIdx, _totalCount: drawn.length })),
+      cards: drawn.map((d) => ({
+        ...d.card, _drawIdx: d.slotIdx, _slotIdx: d.slotIdx, _totalCount: MAX_HAND_SIZE,
+      })),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawData, turn, gameOver, isInitializing, p1.hasDrawnWeapon, p1.weaponsLeft]);
+  }, [drawData, turn, gameOver, isInitializing, p1.weaponsLeft, playerHand, playedCards]);
 
   /* ── Carta del giocatore atterra ── */
   const handleP1Landed = useCallback((idx) => {
+    /* Marca la carta come atterrata → HandCard la renderizza */
+    setPlayerHand(prev => prev.map(c =>
+      c._drawIdx === idx ? { ...c, _landed: true } : c
+    ));
     setLandedP1(prev => {
       const next = new Set(prev).add(idx);
-      /* Avvia la pesca visuale avversaria quando la penultima carta atterra */
       const totalCards = drawData?.cards?.length ?? MAX_HAND_SIZE;
+      /* Avvia la pesca visuale avversaria quando la penultima carta atterra */
       if (next.size >= Math.max(1, totalCards - 1)) {
-        setTimeout(() => setOppDrawStarted(true), OPP_DRAW_DELAY * 1000);
+        setTimeout(() => {
+          const st = useGameStore.getState();
+          const emptyCount = st.p2.weaponSlots.filter(s => s === null).length;
+          oppDrawCountRef.current = Math.min(emptyCount || MAX_HAND_SIZE, st.p2.weaponsLeft, MAX_HAND_SIZE);
+          if (st.p2.weaponsLeft > 0 && emptyCount > 0) {
+            /* Salva gli slot vuoti PRIMA di pescare */
+            const emptySlots = st.p2.weaponSlots
+              .map((s, i) => s === null ? i : -1).filter(i => i !== -1);
+            st.drawWeapon(2);
+            /* Pre-popola oppHand con le carte appena pescate (_landed: false) */
+            oppDrawCountRef.current = emptySlots.length;
+            setOppHand(prev => {
+              const newEntries = emptySlots.map(slotIdx => ({
+                _drawIdx: slotIdx, _slotIdx: slotIdx, _landed: false,
+              }));
+              const kept = prev.filter(c => newEntries.every(n => n._drawIdx !== c._drawIdx));
+              return [...kept, ...newEntries];
+            });
+          }
+          setOppDrawStarted(true);
+        }, OPP_DRAW_DELAY * 1000);
+      }
+      /* Quando TUTTE le carte di questa pesca sono atterrate, sblocca drawData */
+      if (next.size >= totalCards) {
+        setTimeout(() => {
+          setDrawData(null);
+          setLandedP1(new Set());
+        }, 100);
       }
       return next;
     });
-    /* Aggiungi alla mano con i dati reali dalla pesca */
-    if (drawData?.cards?.[idx]) {
-      const drawnCard = drawData.cards[idx];
-      setPlayerHand(prev => {
-        if (prev.some(c => c._drawIdx === idx)) return prev;
-        return [...prev, { ...drawnCard, _drawIdx: idx }];
-      });
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawData]);
 
   /* ── Carta avversario atterra ── */
   const handleP2Landed = useCallback((idx) => {
     setLandedP2(prev => new Set(prev).add(idx));
-    setOppHand(prev => {
-      if (prev.some(c => c._drawIdx === idx)) return prev;
-      return [...prev, { _drawIdx: idx }];
-    });
+    /* Marca come atterrata (oppHand è già pre-popolato) */
+    setOppHand(prev => prev.map(c =>
+      c._drawIdx === idx ? { ...c, _landed: true } : c
+    ));
   }, []);
 
   /* ── Gioca carta dalla mano → slot azione → dissoluzione → arco → buff cavaliere ── */
   const handlePlayCard = useCallback((drawIdx, cardGroup) => {
-    if (!cardGroup) return;
+    if (!cardGroup || isAnimatingRef.current) return;
 
     /* Trova la carta e lo slotIdx reale */
     const card = playerHand.find(c => c._drawIdx === drawIdx);
@@ -1707,6 +2357,7 @@ function Scene() {
       z: cardGroup.position.z,
     };
 
+    isAnimatingRef.current = true;
     pendingEquipRef.current = slotIdx;
     setPlayedCards(prev => new Set(prev).add(drawIdx));
     setPlayingCard({ card, startPos });
@@ -1716,6 +2367,7 @@ function Scene() {
   /* PlayingCard termina → equipaggia nello store */
   const handlePlayComplete = useCallback(() => {
     setPlayingCard(null);
+    isAnimatingRef.current = false;
     if (pendingEquipRef.current !== null) {
       equipWeapon(1, pendingEquipRef.current);
       pendingEquipRef.current = null;
@@ -1723,10 +2375,9 @@ function Scene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ═══════ Scarto carta dalla mano (doppio click destro) ═══════ */
+  /* ═══════ Scarto carta dalla mano (drag nella Hotzone) ═══════ */
   const handleDiscardCard = useCallback((drawIdx, slotIdx, cardGroup) => {
-    if (turn !== 1 || gameOver || isInitializing) return;
-    if (p1.hasUsedRedraw) return;              // un solo scarto per turno
+    if (turn !== 1 || gameOver || isInitializing || isAnimatingRef.current) return;
     const card = playerHand.find(c => c._drawIdx === drawIdx);
     if (!card || !cardGroup) return;
 
@@ -1737,15 +2388,39 @@ function Scene() {
     };
 
     /* Nascondi dalla mano e lancia animazione */
+    isAnimatingRef.current = true;
     setPlayedCards(prev => new Set(prev).add(drawIdx));
     setDiscardingCard({ card, startPos });
+    discardSlotRef.current = slotIdx;   // traccia lo slot per il free-redraw
     discardWeapon(1, slotIdx);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerHand, turn, gameOver, isInitializing, p1.hasUsedRedraw]);
+  }, [playerHand, turn, gameOver, isInitializing]);
 
-  /* DiscardingCard termina → pulisci stato */
+  /* DiscardingCard termina → pulisci stato + sincronizza free-redraw in playerHand */
   const handleDiscardComplete = useCallback(() => {
     setDiscardingCard(null);
+    isAnimatingRef.current = false;
+
+    const slotIdx = discardSlotRef.current;
+    discardSlotRef.current = null;
+    if (slotIdx == null) return;
+
+    /* Se il free-redraw ha già piazzato una nuova carta nello slot, 
+       aggiungila con _landed: false e lancia l'animazione di volo */
+    const newCard = useGameStore.getState().p1.weaponSlots[slotIdx];
+    if (newCard) {
+      /* Inserisci subito in playerHand (non atterrata) → il conteggio è aggiornato */
+      setPlayerHand(prev => {
+        const without = prev.filter(c => c._slotIdx !== slotIdx);
+        return [...without, { ...newCard, _drawIdx: slotIdx, _slotIdx: slotIdx, _landed: false }];
+      });
+      setPlayedCards(prev => { const next = new Set(prev); next.delete(slotIdx); return next; });
+      /* Lancia DrawingCard per la singola carta pescata dal free-redraw */
+      setDrawData({
+        cards: [{ ...newCard, _drawIdx: slotIdx, _slotIdx: slotIdx, _totalCount: MAX_HAND_SIZE }],
+      });
+      setLandedP1(new Set());
+    }
   }, []);
 
   /* ═══════ AI equip → animazione PlayingCard per l'avversario ═══════ */
@@ -1766,7 +2441,7 @@ function Scene() {
     const offset = slotIdx - (tc - 1) / 2;
     const startPos = {
       x: offset * OPP_SPREAD,
-      y: OPP_HAND_Y + slotIdx * OPP_Z_STEP,
+      y: OPP_HAND_BASE_Y + slotIdx * OPP_Z_STEP,
       z: OPP_HAND_Z,
     };
 
@@ -1784,8 +2459,8 @@ function Scene() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* Mano visibile = atterrate meno giocate */
-  const visibleHand = useMemo(
+  /* Mano completa = tutte le carte non giocate (include _landed: false per il conteggio) */
+  const fullHand = useMemo(
     () => playerHand.filter(c => !playedCards.has(c._drawIdx)),
     [playerHand, playedCards],
   );
@@ -1822,16 +2497,6 @@ function Scene() {
 
       {/* ══════ GAME BOARD ══════ */}
       <Table />
-
-      <ContactShadows
-        position={[0, 0.001, 0]}
-        opacity={SHADOW_CONTACT_OP}
-        scale={20}
-        blur={SHADOW_BLUR}
-        far={8}
-        resolution={512}
-        color="#000000"
-      />
 
       {/* ── Mazzi — ognuno legge la propria trasformazione da CONFIG_3D ── */}
 
@@ -1902,6 +2567,13 @@ function Scene() {
           hoverLift={0}
         />
       )}
+      {p1KnightReady && p1.activeCard && (
+        <BuffIcons
+          position={perspPos(CONFIG_3D.playerKnightSlot)}
+          isAtkBuffed={p1Stats.isAtkBuffed}
+          isDefBuffed={p1Stats.isDefBuffed}
+        />
+      )}
       {p2KnightReady && (p2.activeCard || p2KnightDying) && (
         <Card3D
           ref={p2KnightRef}
@@ -1921,6 +2593,13 @@ function Scene() {
           hoverLift={0}
         />
       )}
+      {p2KnightReady && p2.activeCard && (
+        <BuffIcons
+          position={perspPos(CONFIG_3D.opponentKnightSlot)}
+          isAtkBuffed={p2Stats.isAtkBuffed}
+          isDefBuffed={p2Stats.isDefBuffed}
+        />
+      )}
 
       {/* ═══════ VFX Manager ═══════ */}
       <VFXManager
@@ -1928,6 +2607,20 @@ function Scene() {
         p2KnightRef={p2KnightRef}
         knightPositions={knightPositions}
       />
+
+      {/* ── Terreno Attivo (alto-sinistra, fisso, respiro lento) ── */}
+      {/* Durante la rivelazione: animazione dal mazzo al centro → posizione finale */}
+      {terrainReveal && (
+        <TerrainRevealCard
+          terrainData={terrainReveal.data}
+          deckConfigKey={terrainReveal.deckKey}
+          onComplete={() => setTerrainReveal(null)}
+        />
+      )}
+      {/* Dopo la rivelazione: carta statica con respiro */}
+      {activeTerrain && !terrainReveal && (
+        <TerrainDisplayCard terrainData={activeTerrain} />
+      )}
 
       {/* ── Anello Zona di Scontro (esatto centro tra i due cavalieri) ── */}
       <mesh rotation={perspRot(clash)} position={perspPos(clash)} scale={clash.scale}>
@@ -1938,53 +2631,80 @@ function Scene() {
         />
       </mesh>
 
+      {/* ── Debug: bordo visibile della Hotzone di scarto ── */}
+      {DEBUG_HOTZONE && (
+        <mesh
+          position={[HOTZONE_CX, 0.005, HOTZONE_CZ]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[HOTZONE_W, HOTZONE_H]} />
+          <meshBasicMaterial
+            color="#ff4444"
+            transparent
+            opacity={0.15}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+      {DEBUG_HOTZONE && (
+        <lineSegments
+          position={[HOTZONE_CX, 0.006, HOTZONE_CZ]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <edgesGeometry args={[new THREE.PlaneGeometry(HOTZONE_W, HOTZONE_H)]} />
+          <lineBasicMaterial color="#ff0000" linewidth={2} />
+        </lineSegments>
+      )}
+
       {/* ── Carte in Pesca del Giocatore ── */}
-      {drawData && drawData.cards.map((card, i) =>
-        !landedP1.has(i) && (
+      {drawData && drawData.cards.map((card, arrIdx) =>
+        !landedP1.has(card._drawIdx) && (
           <DrawingCard
-            key={`p1draw-${i}`}
-            card={card} index={i} totalCount={drawData.cards.length}
+            key={`p1draw-${card._drawIdx}`}
+            card={card} index={card._drawIdx} totalCount={MAX_HAND_SIZE}
             deckPos={perspPos(CONFIG_3D.playerMainDeck)}
             deckRot={perspRot(CONFIG_3D.playerMainDeck)}
             deckTopSkew={CONFIG_3D.playerMainDeck.topSkew ?? [0, 0]}
             deckBottomSkew={CONFIG_3D.playerMainDeck.bottomSkew ?? [0, 0]}
             isOpponent={false}
-            absoluteDelay={i * CARD_ANIM_DUR}
+            absoluteDelay={arrIdx * CARD_ANIM_DUR}
             onLanded={handleP1Landed}
           />
         )
       )}
 
-      {/* ── Carte in Pesca dell'Avversario (faccia in giù, puramente decorative) ── */}
+      {/* ── Carte in Pesca dell'Avversario (faccia in giù, decorative + dati reali sotto) ── */}
       {oppDrawStarted && (() => {
-        const oppEmptySlots = p2.weaponSlots.filter(s => s === null).length || MAX_HAND_SIZE;
-        const oppCount = Math.min(oppEmptySlots, p2.weaponsLeft, MAX_HAND_SIZE);
-        return Array.from({ length: oppCount }, (_, i) => i).map(i =>
-          !landedP2.has(i) && (
-            <DrawingCard
-              key={`p2draw-${i}`}
-              card={null} index={i} totalCount={oppCount}
-              deckPos={perspPos(CONFIG_3D.opponentMainDeck)}
-              deckRot={perspRot(CONFIG_3D.opponentMainDeck)}
-              deckTopSkew={CONFIG_3D.opponentMainDeck.topSkew ?? [0, 0]}
-              deckBottomSkew={CONFIG_3D.opponentMainDeck.bottomSkew ?? [0, 0]}
-              isOpponent
-              absoluteDelay={i * CARD_ANIM_DUR}
-              onLanded={handleP2Landed}
-            />
-          )
+        /* Filtra solo le carte non atterrate (in volo) */
+        const inFlight = oppHand.filter(c => !c._landed && !landedP2.has(c._drawIdx));
+        return inFlight.map((c, arrIdx) =>
+          <DrawingCard
+            key={`p2draw-${c._drawIdx}`}
+            card={null} index={c._drawIdx} totalCount={MAX_HAND_SIZE}
+            deckPos={perspPos(CONFIG_3D.opponentMainDeck)}
+            deckRot={perspRot(CONFIG_3D.opponentMainDeck)}
+            deckTopSkew={CONFIG_3D.opponentMainDeck.topSkew ?? [0, 0]}
+            deckBottomSkew={CONFIG_3D.opponentMainDeck.bottomSkew ?? [0, 0]}
+            isOpponent
+            absoluteDelay={arrIdx * CARD_ANIM_DUR}
+            onLanded={handleP2Landed}
+          />
         );
       })()}
 
-      {/* ── Mano del Giocatore (ventaglio fisso, spazio-schermo) ── */}
-      {visibleHand.map(card => (
-        <HandCard
-          key={`hand-${card._drawIdx}`}
-          card={card}
-          totalCount={card._totalCount || visibleHand.length}
-          onPlay={handlePlayCard}
-          onDiscard={handleDiscardCard}
-        />
+      {/* ── Mano del Giocatore (ventaglio dinamico centrato) ── */}
+      {fullHand.map((card, vi) => (
+        card._landed && (
+          <HandCard
+            key={`hand-${card._drawIdx}`}
+            card={card}
+            visibleIndex={vi}
+            visibleCount={fullHand.length}
+            onPlay={handlePlayCard}
+            onDiscard={handleDiscardCard}
+          />
+        )
       ))}
 
       {/* ── Carta Giocata → slot azione → dissoluzione → arco → buff cavaliere ── */}
@@ -2019,17 +2739,20 @@ function Scene() {
         />
       )}
 
-      {/* ── Mano dell'Avversario (ventaglio fisso, faccia in giù con dati reali per hover) ── */}
-      {oppHand.map((c, i) =>
-        oppPlayedCards.has(i) ? null : (
-          <OppHandCard
-            key={`opp-${i}`}
-            index={i}
-            totalCount={oppHand.length}
-            card={p2.weaponSlots[i] ?? null}
-          />
-        )
-      )}
+      {/* ── Mano dell'Avversario (ventaglio dinamico centrato) ── */}
+      {(() => {
+        const fullOpp = oppHand.filter(c => !oppPlayedCards.has(c._drawIdx));
+        return fullOpp.map((c, vi) => (
+          c._landed && (
+            <OppHandCard
+              key={`opp-${c._drawIdx}`}
+              visibleIndex={vi}
+              visibleCount={fullOpp.length}
+              card={p2.weaponSlots[c._slotIdx ?? c._drawIdx] ?? null}
+            />
+          )
+        ));
+      })()}
 
       {/* ── Disco flash d'impatto per attacco fisico ── */}
       <mesh ref={attackFlashRef} visible={false}
@@ -2046,85 +2769,178 @@ function Scene() {
 }
 
 
-/* ─── HUD overlay — indicatore turno + pulsanti azione ─── */
+/* ─── HUD overlay — pannello azioni verticale (destra) + moneta Attacca/Pass ─── */
+const HOLD_THRESHOLD = 1500; // ms per triggerare PassTurn
+
 function GameHUD() {
   const {
     turn, gameOver, hasAttacked, p1, p2, isInitializing,
-    endTurn, playAITurn, attack,
+    playAITurn, attack, endTurn,
   } = useGameStore();
   const [aiPlaying, setAiPlaying] = useState(false);
+  const [coinFlipping, setCoinFlipping] = useState(false);
+  const [holdProgress, setHoldProgress] = useState(0); // 0–1
+  const holdTimerRef  = useRef(null);
+  const holdStartRef  = useRef(0);
+  const holdRafRef    = useRef(null);
+  const didPassRef    = useRef(false);
 
-  const canAttack = turn === 1 && !gameOver && !isInitializing && !aiPlaying
-    && !hasAttacked && p1.activeCard && p2.activeCard
+  const canAct = turn === 1 && !gameOver && !isInitializing && !aiPlaying
+    && !coinFlipping && !hasAttacked && p1.activeCard && p2.activeCard
     && !p1.buffs.some(b => b.id === 'noAttack' || b.id === 'sabbia');
 
-  const handleAttack = useCallback(() => {
-    if (!canAttack) return;
-    attack(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAttack]);
+  /* ── Pointer Down: avvia timer hold ── */
+  const handlePointerDown = useCallback(() => {
+    if (!canAct) return;
+    didPassRef.current = false;
+    holdStartRef.current = performance.now();
 
-  const handleEndTurn = useCallback(async () => {
-    if (turn !== 1 || gameOver || isInitializing || aiPlaying) return;
-    endTurn(1);
-    setAiPlaying(true);
-    await playAITurn();
-    setAiPlaying(false);
+    /* Aggiorna anello di caricamento via RAF */
+    const tick = () => {
+      const elapsed = performance.now() - holdStartRef.current;
+      const p = Math.min(elapsed / HOLD_THRESHOLD, 1);
+      setHoldProgress(p);
+      if (p < 1) {
+        holdRafRef.current = requestAnimationFrame(tick);
+      } else {
+        /* Hold completato → PassTurn */
+        didPassRef.current = true;
+        setHoldProgress(0);
+        const s = useGameStore.getState();
+        if (s.gameOver) return;
+        s.endTurn(1);
+        setAiPlaying(true);
+        s.playAITurn().then(() => setAiPlaying(false));
+      }
+    };
+    holdRafRef.current = requestAnimationFrame(tick);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turn, gameOver, isInitializing, aiPlaying]);
+  }, [canAct]);
+
+  /* ── Pointer Up: se rilascio rapido (<300ms) → Attack, altrimenti annulla hold ── */
+  const handlePointerUp = useCallback(() => {
+    if (holdRafRef.current) cancelAnimationFrame(holdRafRef.current);
+    holdRafRef.current = null;
+    setHoldProgress(0);
+
+    if (didPassRef.current) return; // già passato turno
+    if (!canAct) return;
+
+    const elapsed = performance.now() - holdStartRef.current;
+    if (elapsed < 300) {
+      /* Click rapido → Attacca */
+      setCoinFlipping(true);
+      setTimeout(() => {
+        attack(1);
+        setCoinFlipping(false);
+      }, 600);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canAct]);
+
+  /* Cleanup RAF al unmount */
+  useEffect(() => () => {
+    if (holdRafRef.current) cancelAnimationFrame(holdRafRef.current);
+  }, []);
+
+  /* ── Auto Fine Turno: scatta appena hasAttacked diventa true e l'anim d'attacco è cessata ── */
+  const autoEndScheduled = useRef(false);
+  useEffect(() => {
+    if (!hasAttacked || turn !== 1 || gameOver || aiPlaying || isInitializing) return;
+    if (autoEndScheduled.current) return;
+    autoEndScheduled.current = true;
+    const delay = (ATTACK_LIFT_DUR + ATTACK_LUNGE_DUR + ATTACK_FLASH_CNT * ATTACK_FLASH_DUR + ATTACK_RETURN_DUR + 0.3) * 1000;
+    const timer = setTimeout(async () => {
+      const s = useGameStore.getState();
+      if (s.gameOver) { autoEndScheduled.current = false; return; }
+      s.endTurn(1);
+      setAiPlaying(true);
+      await s.playAITurn();
+      setAiPlaying(false);
+      autoEndScheduled.current = false;
+    }, delay);
+    return () => { clearTimeout(timer); autoEndScheduled.current = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAttacked, turn, gameOver, aiPlaying, isInitializing]);
 
   if (isInitializing) return null;
 
+  /* Stile CSS per animazione flip moneta + pulse icone buff + anello di caricamento */
+  const COIN_SIZE = 83; // 64 * 1.3 ≈ 83
+  const ringCircumference = Math.PI * (COIN_SIZE - 6); // raggio interno svg stroke
+
+  const styleTag = `
+    @keyframes coin-flip {
+      0%   { transform: rotateY(0deg) scale(1); }
+      50%  { transform: rotateY(540deg) scale(1.15); }
+      100% { transform: rotateY(1080deg) scale(1); }
+    }
+    @keyframes pulse-icon {
+      0%, 100% { opacity: 0.85; transform: scale(1); }
+      50%      { opacity: 1;    transform: scale(1.2); }
+    }
+  `;
+
   return (
     <>
-      {/* ── Barra superiore: turno + stats ── */}
+      <style>{styleTag}</style>
+
+      {/* ── Pannello Azioni Verticale (destra) ── */}
       <div style={{
-        position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', gap: 12, alignItems: 'center', zIndex: 10,
-        fontFamily: 'monospace', color: '#fff', userSelect: 'none',
+        position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+        display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center',
+        zIndex: 10, fontFamily: 'monospace', userSelect: 'none',
       }}>
-        <span style={{
+        {/* Indicatore turno */}
+        <div style={{
           background: turn === 1 ? '#1a6b1a' : '#6b1a1a',
-          padding: '4px 12px', borderRadius: 4, fontSize: 14,
+          padding: '6px 12px', borderRadius: 6, fontSize: 13, color: '#fff',
+          textAlign: 'center', minWidth: 60,
         }}>
-          {gameOver ? 'FINE' : aiPlaying ? 'AI...' : `Turno: G${turn}`}
-        </span>
+          {gameOver ? 'FINE' : aiPlaying ? 'AI...' : `Turno G${turn}`}
+        </div>
 
-        {/* Pulsante Attacco */}
-        {canAttack && (
-          <button onClick={handleAttack} style={{
-            background: '#8a1a1a', color: '#fff', border: '1px solid #ff4444',
-            padding: '4px 14px', borderRadius: 4, cursor: 'pointer',
-            fontSize: 13, fontFamily: 'monospace',
+        {/* Moneta "Attacca / Hold = Pass" con anello scintille */}
+        <div
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          style={{
+            position: 'relative',
+            width: COIN_SIZE, height: COIN_SIZE,
+            cursor: canAct ? 'pointer' : 'default',
+            opacity: canAct ? 1 : 0.4,
+          }}
+        >
+          {/* Anello SVG di caricamento (scintille perimetrali) */}
+          <svg width={COIN_SIZE} height={COIN_SIZE}
+            style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', pointerEvents: 'none' }}
+          >
+            <circle
+              cx={COIN_SIZE / 2} cy={COIN_SIZE / 2} r={(COIN_SIZE - 6) / 2}
+              fill="none" stroke="#ffaa00" strokeWidth={3}
+              strokeDasharray={ringCircumference}
+              strokeDashoffset={ringCircumference * (1 - holdProgress)}
+              strokeLinecap="round"
+              style={{ transition: holdProgress === 0 ? 'stroke-dashoffset 0.05s' : 'none',
+                       filter: holdProgress > 0 ? 'drop-shadow(0 0 4px #ffaa00)' : 'none' }}
+            />
+          </svg>
+          {/* Disco moneta */}
+          <div style={{
+            position: 'absolute', top: 3, left: 3,
+            width: COIN_SIZE - 6, height: COIN_SIZE - 6, borderRadius: '50%',
+            background: canAct ? '#8a1a1a' : '#333',
+            border: canAct ? '2px solid #ff4444' : '2px solid #555',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: 11, fontWeight: 'bold', fontFamily: 'monospace',
+            textTransform: 'uppercase', letterSpacing: 1,
+            animation: coinFlipping ? 'coin-flip 0.6s ease-in-out' : 'none',
+            transition: 'background 0.2s, border 0.2s',
           }}>
-            Attacca
-          </button>
-        )}
-
-        {/* Pulsante Fine Turno */}
-        {turn === 1 && !gameOver && !aiPlaying && (
-          <button onClick={handleEndTurn} style={{
-            background: '#555', color: '#fff', border: 'none',
-            padding: '4px 14px', borderRadius: 4, cursor: 'pointer',
-            fontSize: 13, fontFamily: 'monospace',
-          }}>
-            Fine Turno
-          </button>
-        )}
-
-        {/* Stats Giocatore */}
-        {p1.activeCard && (
-          <span style={{ fontSize: 12, opacity: 0.7 }}>
-            G1 — PA:{p1.activeCard.pa} ATK:{p1.activeCard.atk} DEF:{p1.activeCard.def}
-          </span>
-        )}
-
-        {/* Stats Avversario */}
-        {p2.activeCard && (
-          <span style={{ fontSize: 12, opacity: 0.5 }}>
-            G2 — ATK:{p2.activeCard.atk} DEF:{p2.activeCard.def}
-          </span>
-        )}
+            {holdProgress > 0.05 ? 'Pass...' : 'Attacca'}
+          </div>
+        </div>
       </div>
 
       {/* ── Overlay Game Over ── */}

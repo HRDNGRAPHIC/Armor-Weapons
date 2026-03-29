@@ -76,10 +76,10 @@ export const VFX_TIMING = {
   HOLO_FLOAT_AMP:     0.08,
   HOLO_FLOAT_SPEED:   1.5,
 
-  /* Riflesso fumo */
-  SMOKE_BUILDUP_DUR:  0.8,
-  SMOKE_HOLD_DUR:     1.0,
-  SMOKE_FADE_DUR:     1.2,
+  /* Riflesso fumo (totale ~10s) */
+  SMOKE_BUILDUP_DUR:  2.5,
+  SMOKE_HOLD_DUR:     4.5,
+  SMOKE_FADE_DUR:     3.0,
   LIGHTNING_INTERVAL: 150,     // ms tra flash
 
   /* Sacrificio */

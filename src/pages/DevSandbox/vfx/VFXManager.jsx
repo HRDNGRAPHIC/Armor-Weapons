@@ -16,7 +16,6 @@ import useGameStore from '../useGameStore';
 import { VFX_EVENTS } from './vfxConstants';
 import TerrainFloater from './TerrainFloater';
 import SpellProjectile from './SpellProjectile';
-import BuffHolograms from './BuffHolograms';
 import SmokeLightningClone from './SmokeLightningClone';
 import SacrificeVFX from './SacrificeVFX';
 
@@ -90,24 +89,6 @@ export default function VFXManager({ p1KnightRef, p2KnightRef, knightPositions }
         activeTerrain={activeTerrain}
         environmentEffect={environmentEffect}
       />
-
-      {/* ═══════ Ologrammi Buff su Cavaliere G1 ═══════ */}
-      {p1.activeCard && (
-        <BuffHolograms
-          position={knightPositions?.p1 || [0, 0, 0]}
-          isAtkBuffed={p1Stats.isAtkBuffed}
-          isDefBuffed={p1Stats.isDefBuffed}
-        />
-      )}
-
-      {/* ═══════ Ologrammi Buff su Cavaliere G2 ═══════ */}
-      {p2.activeCard && (
-        <BuffHolograms
-          position={knightPositions?.p2 || [0, 0, 0]}
-          isAtkBuffed={p2Stats.isAtkBuffed}
-          isDefBuffed={p2Stats.isDefBuffed}
-        />
-      )}
 
       {/* ═══════ Proiettili Spell (Oggetti Magici) ═══════ */}
       {activeSpells.map(spell => (

@@ -184,12 +184,7 @@ function FloatingTerrainCard({ terrainCard }) {
 export default function TerrainFloater({ activeTerrain, environmentEffect }) {
   return (
     <group name="terrain-floater">
-      {/* Carta fluttuante quando il terreno è attivo */}
-      {activeTerrain && (
-        <FloatingTerrainCard terrainCard={activeTerrain.card} />
-      )}
-
-      {/* Effetti ambiente condizionali */}
+      {/* Effetti ambiente condizionali — la carta terreno è gestita da TerrainDisplayCard in GameBoard3D */}
       {environmentEffect === 'RAIN' && <RainParticles />}
       {environmentEffect === 'SLEEP' && <SleepDarkness />}
       {environmentEffect === 'QUAKE' && <QuakeShake><></></QuakeShake>}

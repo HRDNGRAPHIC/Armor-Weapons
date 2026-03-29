@@ -8,12 +8,21 @@
  * Tutte le animazioni usano ref — nessuna transizione di stato React, nessuna lib spring.
  */
 import { useMemo, useRef, useCallback, useImperativeHandle, useEffect } from 'react';
-import { Text } from '@react-three/drei';
+import { Text, useTexture } from '@react-three/drei';
 import { gsap } from 'gsap';
+import * as THREE from 'three';
+import dorsoImg from '../../assets/dorso_carta.png';
+import fronteImg from '../../assets/fronte_carta.png';
+
+/* ═══════ Pre-caricamento texture ═══════
+   Garantisce che le texture siano in cache PRIMA del primo render.
+   Previene il Suspense boundary dal smontare/rimontare il Canvas. */
+useTexture.preload(dorsoImg);
+useTexture.preload(fronteImg);
 
 /* ═══════ Geometria Carta ═══════ */
-const W = 0.7;
 const H = 1.0;
+const W = H * (1610 / 2449); /* ≈ 0.6575 — aspect ratio esatto delle texture */
 
 /* Spessore globale della carta — modifica questo unico valore per snellire tutte le carte */
 export const GLOBAL_CARD_THICKNESS = 0.02;
@@ -122,6 +131,35 @@ export function animatePlayCard(group, target, onComplete) {
 }
 
 
+/* ── Sfondo scuro con bordi arrotondati per la faccia frontale ── */
+const FRONT_BG_RADIUS = 0.038;
+
+/* ── Badge semitrasparente scuro dietro una statistica ── */
+function StatBadge({ x, y, w = 0.15, h = 0.09 }) {
+  const shape = useMemo(() => {
+    const r = 0.018;
+    const bx = -w / 2, by = -h / 2;
+    const s = new THREE.Shape();
+    s.moveTo(bx + r, by);
+    s.lineTo(bx + w - r, by);
+    s.quadraticCurveTo(bx + w, by,      bx + w, by + r);
+    s.lineTo(bx + w, by + h - r);
+    s.quadraticCurveTo(bx + w, by + h,  bx + w - r, by + h);
+    s.lineTo(bx + r, by + h);
+    s.quadraticCurveTo(bx, by + h,      bx, by + h - r);
+    s.lineTo(bx, by + r);
+    s.quadraticCurveTo(bx, by,          bx + r, by);
+    return s;
+  }, [w, h]);
+  return (
+    <mesh position={[x, y, GLOBAL_CARD_THICKNESS / 2 + 0.0055]}>
+      <shapeGeometry args={[shape]} />
+      <meshStandardMaterial color="#000000" transparent opacity={0.55} depthWrite={false} />
+    </mesh>
+  );
+}
+
+
 /* ═══════ Card Component ═══════ */
 
 export default function Card3D({
@@ -148,6 +186,17 @@ export default function Card3D({
   onClick,
   onContextMenu,
 }) {
+  const dorsoTex  = useTexture(dorsoImg);
+  const fronteTex = useTexture(fronteImg);
+
+  /* Forza SRGB color space — evita colori slavati da linear-space rendering */
+  useMemo(() => {
+    dorsoTex.colorSpace  = THREE.SRGBColorSpace;
+    fronteTex.colorSpace = THREE.SRGBColorSpace;
+    dorsoTex.needsUpdate  = true;
+    fronteTex.needsUpdate = true;
+  }, [dorsoTex, fronteTex]);
+
   const groupRef  = useRef();
   const isHovered = useRef(false);
 
@@ -177,6 +226,27 @@ export default function Card3D({
   const rightSkewUni  = useRef({ value: { x: 0, y: 0 } });
   const dissolveUni   = useRef({ value: -0.1 });
   const fadeOpacityUni = useRef({ value: 1.0 });
+
+  /* ── Face / border colors (servono ai materiali imperativi sotto) ── */
+  const faceColor   = useMemo(() => TYPE_COLORS[type] || '#111', [type]);
+  const borderColor = useMemo(() => BORDER_COLORS[type] || '#444', [type]);
+
+  /* ── Shape per il FrontBackground (bordi arrotondati) ── */
+  const frontBgShape = useMemo(() => {
+    const bw = W * 0.97, bh = H * 0.97, r = FRONT_BG_RADIUS;
+    const x = -bw / 2, y = -bh / 2;
+    const s = new THREE.Shape();
+    s.moveTo(x + r, y);
+    s.lineTo(x + bw - r, y);
+    s.quadraticCurveTo(x + bw, y, x + bw, y + r);
+    s.lineTo(x + bw, y + bh - r);
+    s.quadraticCurveTo(x + bw, y + bh, x + bw - r, y + bh);
+    s.lineTo(x + r, y + bh);
+    s.quadraticCurveTo(x, y + bh, x, y + bh - r);
+    s.lineTo(x, y + r);
+    s.quadraticCurveTo(x, y, x + r, y);
+    return s;
+  }, []);
 
   useEffect(() => {
     const install = (mesh) => {
@@ -219,7 +289,7 @@ export default function Card3D({
           shader.fragmentShader.replace(
             '#include <dithering_fragment>',
             `if (dissolveThreshold > -0.05) {
-              vec2 cardUV = vec2(vLocalPos.x / 0.7 + 0.5, vLocalPos.y / 1.0 + 0.5);
+              vec2 cardUV = vec2(vLocalPos.x / ${W} + 0.5, vLocalPos.y / ${H} + 0.5);
               float minD = 999.0;
               for (int i = 0; i < 8; i++) {
                 float fi = float(i);
@@ -250,6 +320,7 @@ export default function Card3D({
     };
     install(bodyMeshRef.current);
     install(borderMeshRef.current);
+
     topSkewUni.current.value.x    = topSkew[0];
     topSkewUni.current.value.y    = topSkew[1];
     bottomSkewUni.current.value.x = bottomSkew[0];
@@ -284,7 +355,7 @@ export default function Card3D({
         tl.to(fadeOpacityUni.current, {
           value: 0, duration: duration * 0.8, ease: 'power2.in',
         }, 0);
-        /* Dissolvi anche testi e figli visivi */
+        /* Dissolvi anche testi, FrontBackground e figli visivi — stessa durata+easing del fadeOpacity */
         const fp = { v: 1 };
         tl.to(fp, {
           v: 0, duration: duration * 0.8, ease: 'power2.in',
@@ -320,13 +391,11 @@ export default function Card3D({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topSkew[0], topSkew[1], bottomSkew[0], bottomSkew[1], leftSkew[0], leftSkew[1], rightSkew[0], rightSkew[1]]);
 
-  const faceColor   = useMemo(() => TYPE_COLORS[type] || '#111', [type]);
-  const borderColor = useMemo(() => BORDER_COLORS[type] || '#444', [type]);
   const isKnight = type === 'knight' && !faceDown;
   const isEquip  = (type === 'arma' || type === 'scudo') && !faceDown;
   const isItem   = (type === 'oggetto' || type === 'terreno') && !faceDown;
   const isDeck   = type === 'deck';
-  const isBack   = faceDown || type === 'back';
+  const isBack   = faceDown || type === 'back' || type === 'deck';
 
   /* Stato di riposo per il ripristino al hover */
   const restState = useMemo(() => {
@@ -373,9 +442,9 @@ export default function Card3D({
       onContextMenu={onContextMenu}
     >
       {/* ── Card body (real 3D box) ── */}
-      <mesh ref={bodyMeshRef} castShadow receiveShadow>
+      <mesh ref={bodyMeshRef}>
         <boxGeometry args={[W, H, D]} />
-        <meshStandardMaterial color={isBack ? '#333333' : faceColor} roughness={0.7} metalness={0.1} transparent />
+        <meshStandardMaterial color={isBack ? '#7a5c1e' : faceColor} roughness={0.7} metalness={0.1} transparent />
       </mesh>
 
       {/* ── Border frame ── */}
@@ -384,82 +453,95 @@ export default function Card3D({
         <meshStandardMaterial color={borderColor} roughness={0.6} metalness={0.15} transparent />
       </mesh>
 
+      {/* ── Fronte cornice — texture fronte_carta.png (PNG con centro trasparente) ── */}
+      {!isBack && (
+        <>
+          {/* Fondo scuro con bordi arrotondati — meshBasicMaterial: nessuna influenza luci */}
+          <mesh position={[0, 0, D / 2 + 0.0014]}>
+            <shapeGeometry args={[frontBgShape]} />
+            <meshBasicMaterial color={faceColor} depthWrite toneMapped={false} />
+          </mesh>
+          {/* Cornice fronte — meshBasicMaterial: texture 1:1 senza filter luci */}
+          <mesh position={[0, 0, D / 2 + 0.003]}>
+            <planeGeometry args={[W, H]} />
+            <meshBasicMaterial map={fronteTex} transparent alphaTest={0.05} toneMapped={false} />
+          </mesh>
+        </>
+      )}
+
       {/* ── Face-up content ── */}
       {!isBack && (
         <>
-          {/* Etichette metà superiore — spostate da topSkew per seguire la deformazione della mesh */}
-          <group position={[topSkew[0], topSkew[1], 0]}>
-            <Text position={[0, H * 0.38, D / 2 + 0.002]} fontSize={0.055} maxWidth={W - 0.1}
-                  color="#e2d1a3" anchorX="center" anchorY="middle" overflowWrap="break-word">
-              {name}
-            </Text>
-          </group>
+          {/* Nome carta — centrato sulla mesh, testo con a-capo automatico */}
+          <Text position={[0, H * 0.28, D / 2 + 0.006]} fontSize={0.048} maxWidth={W - 0.1}
+                color="#f0e0b0" anchorX="center" anchorY="middle" textAlign="center"
+                overflowWrap="break-word" lineHeight={1.2} fontWeight={700}>
+            {name}
+          </Text>
 
           {/* Etichette metà inferiore — spostate da bottomSkew */}
           <group position={[bottomSkew[0], bottomSkew[1], 0]}>
             {isKnight && (
               <>
-                <Text position={[-0.2, -H * 0.35, D / 2 + 0.002]} fontSize={isAtkBuffed ? 0.07 : 0.06} color={isAtkBuffed ? '#ff4444' : '#ff0000'} anchorX="center" outlineWidth={isAtkBuffed ? 0.006 : 0} outlineColor="#ff0000">{`${atk ?? 0}`}</Text>
-                <Text position={[0, -H * 0.35, D / 2 + 0.002]} fontSize={isDefBuffed ? 0.07 : 0.06} color={isDefBuffed ? '#66ff66' : '#4dff4d'} anchorX="center" outlineWidth={isDefBuffed ? 0.006 : 0} outlineColor="#4dff4d">{`${def ?? 0}`}</Text>
-                <Text position={[0.2, -H * 0.35, D / 2 + 0.002]} fontSize={0.06} color="#ffd700" anchorX="center">{`${pa ?? 0}`}</Text>
-                <Text position={[-0.2, -H * 0.43, D / 2 + 0.002]} fontSize={0.03} color="#888" anchorX="center">ATK</Text>
-                <Text position={[0, -H * 0.43, D / 2 + 0.002]} fontSize={0.03} color="#888" anchorX="center">DEF</Text>
-                <Text position={[0.2, -H * 0.43, D / 2 + 0.002]} fontSize={0.03} color="#888" anchorX="center">PA</Text>
+                <Text position={[-0.2, -H * 0.35, D / 2 + 0.009]} fontSize={0.072} color="#ff4444" anchorX="center" anchorY="middle" outlineWidth={0.007} outlineColor="#880000" fontWeight={700}>{`${atk ?? 0}`}</Text>
+                <Text position={[0,   -H * 0.35, D / 2 + 0.009]} fontSize={0.072} color="#66ff66" anchorX="center" anchorY="middle" outlineWidth={0.007} outlineColor="#006600" fontWeight={700}>{`${def ?? 0}`}</Text>
+                <Text position={[0.2, -H * 0.35, D / 2 + 0.009]} fontSize={0.072} color="#ffd700" anchorX="center" anchorY="middle" outlineWidth={0.005} outlineColor="#885500" fontWeight={700}>{`${pa ?? 0}`}</Text>
+                <Text position={[-0.2, -H * 0.435, D / 2 + 0.006]} fontSize={0.028} color="#aaaaaa" anchorX="center">ATK</Text>
+                <Text position={[0,   -H * 0.435, D / 2 + 0.006]} fontSize={0.028} color="#aaaaaa" anchorX="center">DEF</Text>
+                <Text position={[0.2, -H * 0.435, D / 2 + 0.006]} fontSize={0.028} color="#aaaaaa" anchorX="center">PA</Text>
               </>
             )}
 
             {isEquip && bonus != null && (
-              <Text position={[0, -H * 0.35, D / 2 + 0.002]} fontSize={0.07}
-                    color={type === 'arma' ? '#ff0000' : '#4dff4d'} anchorX="center">
-                {`+${bonus}`}
-              </Text>
+              <>
+                <Text position={[cu != null ? -0.14 : 0, -H * 0.35, D / 2 + 0.009]} fontSize={0.072}
+                      color={type === 'arma' ? '#ff4444' : '#66ff66'} anchorX="center" anchorY="middle"
+                      outlineWidth={0.007} outlineColor={type === 'arma' ? '#880000' : '#006600'} fontWeight={700}>
+                  {`+${bonus}`}
+                </Text>
+                {cu != null && (
+                  <Text position={[0.14, -H * 0.35, D / 2 + 0.009]} fontSize={0.072}
+                        color="#ffd700" anchorX="center" anchorY="middle"
+                        outlineWidth={0.005} outlineColor="#885500" fontWeight={700}>
+                    {`${cu}◆`}
+                  </Text>
+                )}
+              </>
             )}
 
             {/* Descrizione testuale per oggetti e terreni */}
             {isItem && desc && (
-              <Text position={[0, -H * 0.28, D / 2 + 0.002]} fontSize={0.035} maxWidth={W - 0.12}
-                    color="#ccc" anchorX="center" anchorY="top" overflowWrap="break-word"
-                    textAlign="center">
+              <Text position={[0, -H * 0.18, D / 2 + 0.006]} fontSize={0.052} maxWidth={W - 0.22}
+                    color="#ffffff" anchorX="center" anchorY="top" overflowWrap="break-word"
+                    textAlign="center" outlineWidth={0.003} outlineColor="#000000">
                 {desc}
               </Text>
             )}
 
-            {/* Costo CU — mostrato in basso a destra per tutti gli equipaggiamenti */}
-            {(isEquip || isItem) && cu != null && (
-              <Text position={[W * 0.35, -H * 0.43, D / 2 + 0.002]} fontSize={0.04}
-                    color="#ffd700" anchorX="right" anchorY="middle">
-                {`CU:${cu}`}
+            {/* Costo CU — centrato, grande e in grassetto per oggetti/terreni */}
+            {isItem && cu != null && (
+              <Text position={[0, -H * 0.43, D / 2 + 0.009]} fontSize={0.065}
+                    color="#ffd700" anchorX="center" anchorY="middle"
+                    outlineWidth={0.005} outlineColor="#885500" fontWeight={700}>
+                {`${cu}◆`}
               </Text>
             )}
           </group>
 
-          {/* Icona centrale — nessun offset skew (confine Y=0) */}
-          <Text position={[0, 0, D / 2 + 0.002]} fontSize={0.18} anchorX="center" anchorY="middle" color="#444">
-            {TYPE_ICONS[type] || ''}
-          </Text>
+
         </>
       )}
 
-      {/* ── Dorso carta — solo colore piatto + logo picche ── */}
+      {/* ── Dorso carta — texture dorso_carta.png ── */}
       {isBack && (
-        <>
-          <mesh position={[0, 0, D / 2 + 0.001]}>
-            <planeGeometry args={[W - 0.08, H - 0.08]} />
-            <meshStandardMaterial color="#333333" />
-          </mesh>
-          <Text position={[0, 0, D / 2 + 0.003]} fontSize={0.15} color="#8a0303" anchorX="center" anchorY="middle">
-            {'\u2660'}
-          </Text>
-        </>
+        <mesh position={[0, 0, D / 2 + 0.001]}>
+          <planeGeometry args={[W, H]} />
+          <meshBasicMaterial map={dorsoTex} toneMapped={false} />
+        </mesh>
       )}
 
-      {isDeck && (
-        <group position={[bottomSkew[0], bottomSkew[1], 0]}>
-          <Text position={[0, -H * 0.3, D / 2 + 0.002]} fontSize={0.06} color="#ffd700" anchorX="center">
-            {name}
-          </Text>
-        </group>
-      )}
+
     </group>
   );
 }
+
